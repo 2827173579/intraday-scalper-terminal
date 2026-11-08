@@ -1803,14 +1803,61 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         f"{daily_added} daily bars (session {tracker.current_day})",
         flush=True,
     )
-    terminal = LiveTerminal(config, tracker, prev_closes)
-    terminal.start()
+    terminal = None
+    try:
+        terminal = LiveTerminal(config, tracker, prev_closes)
+        terminal.start()
+        state_provider = terminal.snapshot
+        candles_provider = terminal.candles
+        command_handler = terminal.command
+    except Exception as exc:  # noqa: BLE001 - keep the web page alive on a cloud host
+        print(f"[terminal] live runtime unavailable, serving replay-only page: {exc}", flush=True)
+        from intraday_scalper.web.terminal_server import build_ui_state as _build_state
+
+        fallback_symbols = {
+            symbol: {"symbol": symbol, "last_price": None, "volume": 0, "bars_1m": 0, "bars_5m": 0}
+            for symbol in SYMBOLS
+        }
+        fallback_snapshot = {
+            "mode": "DUAL_WATCH",
+            "session_phase": "CLOSED",
+            "data_status": "UNAVAILABLE",
+            "connection_state": "DISCONNECTED",
+            "entries_today": 0,
+            "max_entries_per_day": 15,
+            "trades_today": 0,
+            "daily_pnl": 0.0,
+            "risk": {},
+            "latest_signal": None,
+            "latest_plan": None,
+            "position": None,
+        }
+
+        def state_provider() -> Dict[str, Any]:  # type: ignore[misc]
+            return _build_state(
+                fallback_snapshot,
+                {"symbols": fallback_symbols},
+                b1_config(),
+                prev_closes=prev_closes or {},
+                provider_name="degraded",
+                events=[
+                    {
+                        "kind": "DATA_UNAVAILABLE",
+                        "level": "WARN",
+                        "message": "Alpaca 凭据缺失或行情不可用：请到 Render Environment 填 ALPACA_API_KEY / ALPACA_SECRET_KEY",
+                        "ts_utc": datetime.now(timezone.utc).isoformat(),
+                    }
+                ],
+            )
+
+        candles_provider = demo_candles
+        command_handler = lambda message: "DATA_UNAVAILABLE: 云端实时行情未连接"
     server = serve(
-        terminal.snapshot,
+        state_provider,
         port=args.port,
         host=args.host,
-        candles_provider=terminal.candles,
-        command_handler=terminal.command,
+        candles_provider=candles_provider,
+        command_handler=command_handler,
         replay_provider=replay_payload,
     )
     url = f"http://127.0.0.1:{args.port}/"
@@ -1823,7 +1870,8 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         pass
     finally:
         server.shutdown()
-        terminal.stop()
+        if terminal is not None:
+            terminal.stop()
     return 0
 
 
