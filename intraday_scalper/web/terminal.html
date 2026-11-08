@@ -366,6 +366,11 @@
             <div class="kv"><span class="k">信号 ID（人工录入用）</span><span class="v" id="execSignalId" style="font-size:11px">—</span></div>
           </div>
           <div id="replayInline" style="margin-top:8px"></div>
+          <div class="smc-note" style="margin-top:8px">
+            <b>出场规则</b>：V0.4 只发<b>买入/做多</b>信号（SOXL 看涨、SOXS 看跌半导体）。
+            <b>卖出 = STOP / TARGET / EOD 自动出场</b>，不是独立的"卖出买入信号"。
+            单持仓制，<b>不加仓</b>；连亏 3 笔停 15 分钟、单日 -$320 熔断。
+          </div>
           <div class="journal-sec">
             <div class="card-sub">今日买卖流水 · 人工日志</div>
             <div id="positionBox"></div>
@@ -1195,8 +1200,9 @@ function drawChart() {
       } else {
         ctx.strokeRect(x - 4, y - 4, 8, 8);
       }
-      if (markerList.length <= 16) {
-        ctx.font = "9px Consolas, monospace";
+      const alwaysLabel = type !== "ENTRY";
+      if (alwaysLabel || markerList.length <= 16) {
+        ctx.font = (alwaysLabel ? "bold 9px" : "9px") + " Consolas, monospace";
         ctx.fillStyle = color;
         ctx.textAlign = "center";
         ctx.fillText(type, x, type === "ENTRY" ? y - 13 : y + 18);
@@ -1205,11 +1211,20 @@ function drawChart() {
     }
   }
 
+  const visibleMarkers = markerList.filter((m) => String(m.symbol || "").toUpperCase() === chart.symbol);
+  const markerCounts = visibleMarkers.reduce((acc, m) => {
+    const key = String(m.type || "").toUpperCase();
+    if (key) acc[key] = (acc[key] || 0) + 1;
+    return acc;
+  }, {});
+  const markerSummary = Object.keys(markerCounts).length
+    ? " · " + Object.entries(markerCounts).map(([k, v]) => k + " " + v).join(" / ")
+    : "";
   $("chartLegend").textContent =
     chart.symbol + " · " + (chart.interval === "D" ? "日K" : chart.interval + "m") +
     " · IEX 实时 · 最新 " + (last ? last.c.toFixed(3) : "—") +
     " · " + (chart.interval === "D" ? fmtDate(last ? last.t : Date.now()) : fmtTime(last ? last.t : Date.now())) +
-    " ET · " + bars.length + " 根" + (chart.extMode ? " · EXT 5m(含盘前盘后)" : "") + (drawn ? " · 标记 " + drawn + " 个" : "");
+    " ET · " + bars.length + " 根" + (chart.extMode ? " · EXT 5m(含盘前盘后)" : "") + (drawn ? " · 标记 " + drawn + " 个" + markerSummary : "");
 }
 
 function setChart() {
