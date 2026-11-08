@@ -9,3 +9,4 @@ alpaca-py>=0.45
 rich>=13.0
 PyYAML>=6.0
 requests>=2.31
+yfinance>=0.2.50

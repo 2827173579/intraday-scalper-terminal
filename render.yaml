@@ -19,5 +19,7 @@ services:
         sync: false
       - key: ALPACA_SECRET_KEY
         sync: false
+      - key: ALPACA_DATA_FEED
+        value: iex
       - key: TERMINAL_PASSWORD
         sync: false
