@@ -534,6 +534,43 @@ def replay_payload() -> Dict[str, Any]:
                 session_date = marker_ts[:10]
         except Exception:  # noqa: BLE001
             pass
+    # V0.5 A+F winner (pre-registered selection) overrides V0.4 recap/compare.
+    try:
+        v05b_web_path = BACKTEST_DIR / "v05b_web.json"
+        if v05b_web_path.exists():
+            v05_web = json.loads(v05b_web_path.read_text(encoding="utf-8"))
+            friday = v05_web.get("friday") or {}
+            winner = v05_web.get("winner") or "A+F"
+            if friday.get("markers"):
+                markers = friday["markers"]
+            if isinstance(recap, dict):
+                old_versions = recap.get("versions") or {}
+                recap["versions"] = {
+                    "V0.1": old_versions.get("V0.1"),
+                    "V0.3": old_versions.get("V0.3"),
+                    "V0.5": {
+                        "version": "V0.5 (A+F)",
+                        "engine": "A+F: Step3c-A NoCap entries + 4.5R R-Ladder (1.5R/2.2R/3.0R locks)",
+                        "summary": friday.get("summary", {}),
+                        "trades": friday.get("trades", []),
+                    },
+                }
+            if v05_web.get("compare"):
+                compare = v05_web["compare"]
+            if v05_web.get("exit_structure"):
+                exit_structure = v05_web["exit_structure"]
+            if v05_web.get("period"):
+                period_b1 = v05_web["period"]
+            session_date = friday.get("session_date") or session_date
+            warning = (
+                "当前默认 = V0.5 A+F（Runner-A 4.5R 阶梯锁利；入场仍为 Step3c-A NoCap）。"
+                "3个月 64 笔 / PF 1.2884 / 净 +$573.91 (+5.74%) / MaxDD $635.82；"
+                "全周期 +$884.15 / PF 1.0391；29折 WF +$230.97 / PF 1.0118 / 14/29。"
+                "真实 TARGET 3 笔（均 +4.49R），阶梯锁利 9 笔，EOD 22 笔，硬止损 30 笔。"
+                "9月仍 -$372.87；OR30/F1/F2 预注册实验均未显著击败 A+F。仅观察、不实盘。"
+            )
+    except Exception:  # noqa: BLE001
+        pass
     return {
         "session_date": session_date,
         "bars": local.get("bars", {}),
@@ -1203,7 +1240,7 @@ class LiveTerminal:
 
     def _maybe_evaluate_v04(self) -> None:
         """Run the V0.4 evaluator on the live session once per new 5m bucket."""
-        from intraday_scalper.research import v04
+        from intraday_scalper.research import v05
 
         current = self.tracker.current_day
         if current is None or current != et_now().date():
@@ -1253,7 +1290,7 @@ class LiveTerminal:
                     )
                 )
         all_bars = list(self._history_bars) + session_bars
-        trades = v04.evaluate_v04_session(all_bars, current, variant=v04.STEP3C_NOCAP_VARIANT)
+        trades = v05.evaluate_v05_session(all_bars, current, variant=v05.V05_PRODUCTION_VARIANT)
         markers: List[Dict[str, Any]] = []
         latest_trade: Optional[Dict[str, Any]] = None
         for trade in trades:
@@ -1271,7 +1308,7 @@ class LiveTerminal:
             "markers": markers,
             "summary": summary,
             "latest_trade": latest_trade,
-            "variant": "V0.4 Step3c-A NoCap",
+            "variant": "V0.5 A+F",
         }
         # emit alerts for new V0.4 markers (drives banner + sound)
         kind_map = {
@@ -1280,6 +1317,9 @@ class LiveTerminal:
             "TARGET": "TAKE_PROFIT_HINT",
             "BREAKEVEN": "BREAKEVEN_HINT",
             "EXIT": "INFO",
+            "EOD_EXIT": "INFO",
+            "TRAIL_EMA21": "STOP_HIT_HINT",
+            "LADDER_STOP": "TAKE_PROFIT_HINT",
         }
         for marker in markers:
             key = f"{marker.get('trade_id')}|{marker.get('type')}|{marker.get('time_utc')}"
@@ -1296,7 +1336,7 @@ class LiveTerminal:
                     "symbol": marker.get("symbol"),
                     "signal_id": marker.get("trade_id"),
                     "message": (
-                        f"V0.4(NoCap) {marker.get('type')} {marker.get('symbol')} "
+                        f"V0.5(A+F) {marker.get('type')} {marker.get('symbol')} "
                         f"@ {marker.get('price')} · {marker.get('strategy', '')}"
                     ),
                 }

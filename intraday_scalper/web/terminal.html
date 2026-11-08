@@ -215,7 +215,7 @@
       <div class="brand-mark">S</div>
       <div>
         <div class="brand-title">SOXL / SOXS 日内司令塔</div>
-        <div class="brand-sub">V0.4 Step3c-A NoCap 引擎 · SMC 严格 AND(EMA21+VWAP) · 无8%追高锁 · 10:00–14:00 · 只提醒不下单</div>
+        <div class="brand-sub">V0.5 A+F 引擎 · 4.5R R-Ladder 阶梯锁利 · Step3c-A NoCap 入场 · B1 风控 · 只提醒不下单</div>
       </div>
     </div>
     <div class="clocks">
@@ -330,7 +330,7 @@
           <div class="prog"><i id="lossBar" style="width:0%"></i></div>
           <div class="kv" style="margin-top:8px"><span class="k" id="cooldownLabel">连亏冷却（3 笔后 15 分钟）</span><span class="v" id="cooldownText">未触发</span></div>
           <div class="kv"><span class="k">连亏笔数 / 日熔断</span><span class="v" id="consecutiveText">0 / 未熔断</span></div>
-          <div class="kv"><span class="k">B1 · 本金 / 单笔风险 / 名义上限</span><span class="v" id="riskConfig">$10,000 / $60 / $10,000</span></div>
+          <div class="kv"><span class="k">V0.5 · 本金 / 风险 / 名义</span><span class="v" id="riskConfig">$10,000 / $60 / $10,000</span></div>
         </div>
       </article>
 
@@ -344,7 +344,7 @@
           <div class="radar-row"><span class="name">SOXL · SMC 5m 刺穿</span><span class="state" id="smc5-SOXL">—</span></div>
           <div class="radar-row"><span class="name">SOXS · SMC 1m 刺穿</span><span class="state" id="smc1-SOXS">—</span></div>
           <div class="radar-row"><span class="name">SOXS · SMC 5m 刺穿</span><span class="state" id="smc5-SOXS">—</span></div>
-          <div class="smc-note">V0.4(Step3c-A) 引擎：10:00–14:00 开仓；EMA_PULLBACK + VWAP(趋势过滤) + SMC_SWEEP；SMC 必须同时站上 EMA21 且 VWAP（AND）；8% 防追高已按 A/B 结果移除；目标 2R。</div>
+          <div class="smc-note">V0.5 A+F 引擎：10:00–14:00 开仓；SMC 严格 AND；出场 Runner-A 4.5R 阶梯锁利（1.5R→+0.20R、2.2R→+1.20R、3.0R→+2.00R，目标 4.5R）；B1 $10,000/$60。</div>
         </div>
       </article>
 
@@ -352,7 +352,7 @@
       <article class="card">
         <div class="card-header"><h3>③ 以损定量 · 执行指南</h3><span class="badge" id="execBadge">等待信号</span></div>
         <div class="card-body" id="execBody">
-          <div class="empty" id="execEmpty">暂无 V0.4(NoCap) 新信号<br>10:00–14:00 入场窗内等待 EMA_PULLBACK / SMC_SWEEP / VWAP过滤</div>
+          <div class="empty" id="execEmpty">暂无 V0.5(A+F) 新信号<br>10:00–14:00 入场窗内等待 EMA_PULLBACK / SMC_SWEEP / VWAP过滤</div>
           <div id="execGrid" style="display:none">
             <div class="exec-entry">
               <div class="exec-box buy"><div class="k">建议买入价</div><div class="v" id="execEntry">—</div></div>
@@ -387,7 +387,7 @@
 
       <!-- 卡片4：最近交易日复盘 -->
       <article class="card">
-        <div class="card-header"><h3>④ 最近交易日复盘 · V0.4(Step3c-A NoCap)</h3><span class="badge info" id="replayBadge">等待</span></div>
+        <div class="card-header"><h3>④ 最近交易日复盘 · V0.5(A+F)</h3><span class="badge info" id="replayBadge">等待</span></div>
         <div class="card-body" id="replayBody">
           <div class="empty">等待 V0.4 复盘数据…<br>（运行 run_v04_backtest 后自动载入周五行情与信号）</div>
         </div>
@@ -761,7 +761,7 @@ function renderReplay(replay) {
   if (session) {
     html += '<div class="kv"><span class="k">回放交易日</span><span class="v">' + session + " ET</span></div>";
   }
-  const rows = ["V0.1", "V0.3", "V0.4"].map((name) => {
+  const rows = ["V0.1", "V0.3", "V0.5"].map((name) => {
     const alias = versions[name] || versions[name.toLowerCase()] || versions["v" + name.slice(1)] || null;
     return versionRow(name, alias);
   }).join("");
@@ -780,7 +780,7 @@ function renderReplay(replay) {
   const period = replay.period_b1 || {};
   if (period.trades) {
     html += '<div class="pos-line" style="margin-top:8px;border-color:rgba(0,230,118,.35)">' +
-      "<b style='color:var(--green)'>B1 真实复盘 · " + (period.label || "2026-08–11") + "</b>：" +
+      "<b style='color:var(--green)'>V0.5 A+F 真实复盘 · " + (period.label || "2026-08–11") + "</b>：" +
       (period.trades ?? "—") + " 笔 ｜ 名义胜率 " + (period.win_rate_pct ?? "—") + "%" +
       " ｜ <b>TARGET " + (period.target_hit_rate_pct ?? "—") + "%</b>" +
       " ｜ PF " + (period.profit_factor ?? "—") +
@@ -793,9 +793,11 @@ function renderReplay(replay) {
     const labelMap = {
       TARGET: "真止盈 TARGET +2R",
       SHIELD_STOP: "保本盾 +0.05R",
+      LADDER_STOP: "阶梯锁利 (1.5R/2.2R/3R)",
       EOD_POSITIVE: "EOD 正收益",
       EOD_NEGATIVE: "EOD 负收益",
       INITIAL_STOP: "硬止损 -1R",
+      TRAIL_EXIT: "EMA21 趋势退出",
     };
     html += '<table class="trade-table" style="margin-top:7px"><thead><tr><th>真实出场</th><th>笔数</th><th>占比</th><th>均$</th></tr></thead><tbody>' +
       exitStructure.map((row) => "<tr><td>" + (labelMap[row.category] || row.category) + "</td><td>" +
@@ -805,11 +807,11 @@ function renderReplay(replay) {
   }
   const compare = replay.compare || [];
   if (compare.length) {
-    html += '<table class="trade-table" style="margin-top:7px"><thead><tr><th>变体</th><th>全周期笔</th><th>PF</th><th>净$</th><th>Holdout净$</th><th>WF净$</th><th>WF折</th></tr></thead><tbody>' +
+    html += '<table class="trade-table" style="margin-top:7px"><thead><tr><th>变体</th><th>3M笔</th><th>3M PF</th><th>3M净$</th><th>全周期净$</th><th>WF净$</th><th>WF折</th></tr></thead><tbody>' +
       compare.map((row) => "<tr><td>" + (row.name ?? "") + "</td><td>" + (row.trades ?? "—") + "</td><td>" +
         (row.pf === null || row.pf === undefined ? "—" : Number(row.pf).toFixed(3)) + "</td><td class='" +
         cls(row.net) + "'>" + (row.net === null || row.net === undefined ? "—" : money(row.net)) + "</td><td class='" +
-        cls(row.holdout_net) + "'>" + (row.holdout_net === null || row.holdout_net === undefined ? "—" : money(row.holdout_net)) + "</td><td class='" +
+        cls(row.full_net !== undefined ? row.full_net : row.holdout_net) + "'>" + ((row.full_net !== undefined ? row.full_net : row.holdout_net) === null || (row.full_net !== undefined ? row.full_net : row.holdout_net) === undefined ? "—" : money(row.full_net !== undefined ? row.full_net : row.holdout_net)) + "</td><td class='" +
         cls(row.wf_net) + "'>" + (row.wf_net === null || row.wf_net === undefined ? "—" : money(row.wf_net)) + "</td><td>" +
         (row.wf_folds ?? "—") + "</td></tr>").join("") + "</tbody></table>";
   }
@@ -819,7 +821,7 @@ function renderReplay(replay) {
   const inline = $("replayInline");
   if (inline) {
     const v = versions || {};
-    const line = ["V0.1", "V0.3", "V0.4"].map((name) => {
+    const line = ["V0.1", "V0.3", "V0.5"].map((name) => {
       const item = v[name] || {};
       const summary = item.summary || item;
       const trades = summary.total_trades ?? summary.trades ?? "—";
@@ -840,12 +842,13 @@ function renderReplay(replay) {
     if (es.length) {
       const get = (name) => es.find((row) => row.category === name) || {};
       const target = get("TARGET");
+      const ladder = get("LADDER_STOP");
       const shield = get("SHIELD_STOP");
       const eodPos = get("EOD_POSITIVE");
       const eodNeg = get("EOD_NEGATIVE");
       const stop = get("INITIAL_STOP");
-      exitLine = "<br><b style='color:var(--green)'>B1 真实出场</b>：TARGET " + (target.count ?? 0) + " 笔（" + (target.pct ?? 0) + "%）｜保本盾 " +
-        (shield.count ?? 0) + " 笔｜EOD " + ((eodPos.count ?? 0) + (eodNeg.count ?? 0)) + " 笔（正 " + (eodPos.count ?? 0) + " / 负 " + (eodNeg.count ?? 0) + "）｜硬止损 " +
+      exitLine = "<br><b style='color:var(--green)'>V0.5 真实出场</b>：TARGET " + (target.count ?? 0) + " 笔（" + (target.pct ?? 0) + "%）｜阶梯锁利 " +
+        (ladder.count ?? 0) + " 笔｜EOD " + ((eodPos.count ?? 0) + (eodNeg.count ?? 0)) + " 笔（正 " + (eodPos.count ?? 0) + " / 负 " + (eodNeg.count ?? 0) + "）｜硬止损 " +
         (stop.count ?? 0) + " 笔（" + (stop.pct ?? 0) + "%）";
     }
     inline.innerHTML = '<div class="pos-line" style="border-color:rgba(255,105,0,.35)">' +

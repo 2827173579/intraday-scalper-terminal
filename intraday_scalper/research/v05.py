@@ -101,8 +101,18 @@ __all__ = [
     "EXIT_MODES",
     "EXIT_RUNNER_A",
     "EXIT_RUNNER_B",
+    "A_F1_F2_VARIANT",
+    "A_F1_VARIANT",
+    "A_F2_VARIANT",
+    "A_PLUS_F_VARIANT",
+    "A_VARIANT",
+    "F2_BOX_FRACTION",
+    "F2_EMA21_SLOPE_MIN",
     "OR30_ATR_MULTIPLE",
+    "OR30_ATR_MULTIPLE_F1",
+    "OR30_FILTER_F1",
     "OR30_FILTER_NONE",
+    "OR30_PCT_MIN_F1",
     "OR30_FILTER_PCT_ONLY",
     "OR30_FILTER_PCT_OR_ATR",
     "OR30_PCT_MIN",
@@ -110,17 +120,23 @@ __all__ = [
     "RUNNER_A_TARGET_R",
     "RUNNER_B_LADDER",
     "RUNNER_B_TRAIL_GAP_R",
+    "V05B_VARIANTS",
+    "V05_PRODUCTION_VARIANT",
     "V05Result",
     "V05Variant",
+    "V05_VARIANTS",
     "V05WalkForwardResult",
     "build_b1_config",
     "compute_or30_blocks",
+    "evaluate_v05_session",
     "ladder_stop",
     "or30_filter_blocks",
     "or30_session_metrics",
+    "result_to_trade_dicts_v05",
     "run_v05_backtest",
     "run_v05_walkforward",
     "target_price_for_mode",
+    "trend_box_allows",
 ]
 
 # --------------------------------------------------------------------------- #
@@ -152,7 +168,22 @@ OR30_ATR_MULTIPLE = 1.2
 OR30_FILTER_NONE = "none"
 OR30_FILTER_PCT_ONLY = "pct_only"
 OR30_FILTER_PCT_OR_ATR = "pct_or_atr"
-_OR30_FILTERS = (OR30_FILTER_NONE, OR30_FILTER_PCT_ONLY, OR30_FILTER_PCT_OR_ATR)
+#: F1 (V0.5b pre-registered): 30m-scale thresholds (2.8% / 2.2 x ATR14_5m).
+OR30_FILTER_F1 = "f1"
+OR30_PCT_MIN_F1 = 0.028
+OR30_ATR_MULTIPLE_F1 = 2.2
+_OR30_FILTERS = (
+    OR30_FILTER_NONE,
+    OR30_FILTER_PCT_ONLY,
+    OR30_FILTER_PCT_OR_ATR,
+    OR30_FILTER_F1,
+)
+
+#: F2 (V0.5b pre-registered): trend strategies may only trade outside / in the
+#: upper half of the OR30 box with a rising 3-bar EMA21 slope.
+F2_BOX_FRACTION = 0.5
+F2_EMA21_SLOPE_MIN = 0.0015
+_TREND_LABELS: tuple[str, ...] = ("VWAP_RECLAIM_5M", "EMA_PULLBACK_5M")
 
 #: B1 risk base (task-15).
 B1_EQUITY = 10_000.0
@@ -180,6 +211,7 @@ class V05Variant:
     exit_mode: str = EXIT_BASELINE
     or30_filter: str | None = None
     risk_dollars: float = B1_RISK
+    trend_box_filter: bool = False
 
     def __post_init__(self) -> None:
         if self.exit_mode not in EXIT_MODES:
@@ -201,6 +233,7 @@ class V05Variant:
             "exit_mode": self.exit_mode,
             "or30_filter": self.or30_filter,
             "risk_dollars": float(self.risk_dollars),
+            "trend_box_filter": bool(self.trend_box_filter),
         }
 
 
@@ -219,6 +252,35 @@ MATRIX_VARIANTS: tuple[V05Variant, ...] = (
     RUNNER_A_FILTER_VARIANT,
     RUNNER_B_FILTER_VARIANT,
 )
+
+#: V0.5b pre-registered comparison set (all use the Runner-A 4.5R R-ladder).
+A_VARIANT = V05Variant("A", EXIT_RUNNER_A)
+A_PLUS_F_VARIANT = V05Variant(
+    "A+F", EXIT_RUNNER_A, OR30_FILTER_PCT_OR_ATR
+)
+A_F1_VARIANT = V05Variant("A+F1", EXIT_RUNNER_A, OR30_FILTER_F1)
+A_F2_VARIANT = V05Variant(
+    "A+F2", EXIT_RUNNER_A, OR30_FILTER_NONE, trend_box_filter=True
+)
+A_F1_F2_VARIANT = V05Variant(
+    "A+F1+F2", EXIT_RUNNER_A, OR30_FILTER_F1, trend_box_filter=True
+)
+V05B_VARIANTS: tuple[V05Variant, ...] = (
+    A_PLUS_F_VARIANT,
+    A_F1_VARIANT,
+    A_F2_VARIANT,
+    A_F1_F2_VARIANT,
+)
+V05_VARIANTS: dict[str, V05Variant] = {
+    "A": A_VARIANT,
+    "A+F": A_PLUS_F_VARIANT,
+    "A+F1": A_F1_VARIANT,
+    "A+F2": A_F2_VARIANT,
+    "A+F1+F2": A_F1_F2_VARIANT,
+}
+
+#: Web production variant placeholder: A+F (Lead switches after this A/B report).
+V05_PRODUCTION_VARIANT = A_PLUS_F_VARIANT
 
 
 def build_b1_config(config: AppConfig, risk_dollars: float = B1_RISK) -> AppConfig:
@@ -352,12 +414,18 @@ def or30_filter_blocks(or30_metrics: Mapping[str, Any], mode: str | None) -> boo
     atr = or30_metrics.get("atr14_5m_1000")
     if range_pct is None or or30_range is None:
         return False
-    if range_pct < OR30_PCT_MIN:
+    if mode == OR30_FILTER_F1:
+        pct_min = OR30_PCT_MIN_F1
+        atr_multiple = OR30_ATR_MULTIPLE_F1
+    else:
+        pct_min = OR30_PCT_MIN
+        atr_multiple = OR30_ATR_MULTIPLE
+    if range_pct < pct_min:
         return True
     if (
-        mode == OR30_FILTER_PCT_OR_ATR
+        mode in (OR30_FILTER_PCT_OR_ATR, OR30_FILTER_F1)
         and atr is not None
-        and float(or30_range) < OR30_ATR_MULTIPLE * float(atr)
+        and float(or30_range) < atr_multiple * float(atr)
     ):
         return True
     return False
@@ -393,6 +461,42 @@ def compute_or30_blocks(
     return frozenset(blocked), rows
 
 
+def trend_box_allows(
+    close: float,
+    or30_high: float | None,
+    or30_low: float | None,
+    ema21_now: float | None,
+    ema21_3bars_ago: float | None,
+) -> bool:
+    """F2: trend strategies may only trade outside / upper-half of the OR30 box.
+
+    Pre-registered rule (fixed a-priori, causal):
+    1) ``close >= OR30_High`` (box breakout), OR
+    2) ``close >= OR30_Low + 0.5 * (OR30_High - OR30_Low)`` **and**
+       ``(EMA21 - EMA21[3]) / EMA21[3] >= 0.15%`` (3 completed 5m bars slope up).
+
+    Missing OR30/EMA references cannot be confirmed -> reject (conservative).
+    SMC_SWEEP_5M is never passed through this helper.
+    """
+
+    if or30_high is None or or30_low is None:
+        return False
+    box_high = float(or30_high)
+    box_low = float(or30_low)
+    if float(close) >= box_high - _PRICE_EPS:
+        return True
+    box_mid = box_low + F2_BOX_FRACTION * (box_high - box_low)
+    if float(close) < box_mid - _PRICE_EPS:
+        return False
+    if ema21_now is None or ema21_3bars_ago is None:
+        return False
+    reference = float(ema21_3bars_ago)
+    if reference <= 0.0:
+        return False
+    slope = (float(ema21_now) - reference) / reference
+    return slope >= F2_EMA21_SLOPE_MIN - 1e-12
+
+
 # --------------------------------------------------------------------------- #
 # Result containers
 # --------------------------------------------------------------------------- #
@@ -420,6 +524,7 @@ class V05Result:
     notes: list[str]
     or30_skipped_evaluations: int = 0
     or30_blocked_sessions: int = 0
+    trend_box_rejected: int = 0
     elapsed_seconds: float = 0.0
 
     @property
@@ -447,6 +552,7 @@ class V05Result:
             "sessions_run": int(self.sessions_run),
             "or30_skipped_evaluations": int(self.or30_skipped_evaluations),
             "or30_blocked_sessions": int(self.or30_blocked_sessions),
+            "trend_box_rejected": int(self.trend_box_rejected),
             "exit_reasons": dict(sorted(exit_reasons.items())),
             "target_exits": len(target_r_values),
             "target_avg_r": round(mean(target_r_values), 4) if target_r_values else 0.0,
@@ -531,6 +637,8 @@ class _V05Replay(v04._V04Replay):
         self.v05_variant = variant
         self._exit_mode = variant.exit_mode
         self._or30_blocks = frozenset(or30_blocks or ())
+        self._trend_box_filter = bool(variant.trend_box_filter)
+        self._f2_rejected = 0
         self._or30_skipped = 0
         self._or30_blocked_sessions = len(
             {session for session, _ in self._or30_blocks}
@@ -563,11 +671,13 @@ class _V05Replay(v04._V04Replay):
             return
         candidate: SignalCandidate | None = None
         candidate_label = ""
+        candidate_context: Any = None
         for label, rule in self._rule_items:
             for view, context in views:
                 candidate = rule(view, context)
                 if candidate is not None:
                     candidate_label = label
+                    candidate_context = context
                     break
             if candidate is not None:
                 break
@@ -580,6 +690,32 @@ class _V05Replay(v04._V04Replay):
                 stop_pct = (entry_ref - stop_loss) / entry_ref
                 if stop_pct > float(self._max_stop_pct):
                     return
+        if self._trend_box_filter and candidate_label in _TREND_LABELS:
+            # F2 uses only completed data: current confirmed bar close, OR30 of
+            # the same session and EMA21 vs the EMA21 value 3 completed bars back.
+            symbol_session = session.symbols.get(candidate.symbol)
+            bucket = (
+                symbol_session.bucket_by_start.get(bucket_start)
+                if symbol_session is not None
+                else None
+            )
+            ema_now = None
+            ema_prev3 = None
+            if bucket is not None:
+                features = self.data.features[candidate.symbol]
+                global_index = bucket.global_index
+                ema_now = features.ema_slow[global_index]
+                if global_index >= 3:
+                    ema_prev3 = features.ema_slow[global_index - 3]
+            if not trend_box_allows(
+                float(candidate.entry_ref),
+                candidate_context.or30_high if candidate_context is not None else None,
+                candidate_context.or30_low if candidate_context is not None else None,
+                ema_now,
+                ema_prev3,
+            ):
+                self._f2_rejected += 1
+                return
         self._signals += 1
         plan = size_position(candidate, self.config.risk, equity=self._equity)
         decision = self.risk.evaluate_entry(
@@ -777,6 +913,12 @@ class _V05Replay(v04._V04Replay):
                 4,
             ) if risk_per_share > 0.0 else 0.0
             detail["exit_stop_kind"] = stop_kind
+        # Surface explicit Web marker types for trail/EOD exits (the frozen
+        # parent maps those to the generic EXIT marker; type is presentation only).
+        if reason in ("TRAIL_EMA21", "EOD_EXIT") and self.markers:
+            marker = self.markers[-1]
+            if marker.get("trade_id") == signal_id:
+                marker["type"] = reason
 
 
 # --------------------------------------------------------------------------- #
@@ -808,6 +950,7 @@ def _build_v05_result(
         notes=list(base.notes),
         or30_skipped_evaluations=int(replay._or30_skipped),
         or30_blocked_sessions=int(replay._or30_blocked_sessions),
+        trend_box_rejected=int(replay._f2_rejected),
     )
 
 
@@ -962,3 +1105,105 @@ def run_v05_walkforward(
         aggregate_test_metrics=aggregate,
         notes=tuple(notes),
     )
+
+
+# --------------------------------------------------------------------------- #
+# Web-facing helpers (same style as v04.evaluate_v04_session)
+# --------------------------------------------------------------------------- #
+def _markers_by_trade(result: V05Result) -> dict[str, list[dict[str, Any]]]:
+    grouped: dict[str, list[dict[str, Any]]] = {}
+    for marker in result.markers:
+        grouped.setdefault(str(marker.get("trade_id")), []).append(dict(marker))
+    for markers in grouped.values():
+        markers.sort(key=lambda item: (item.get("t") or 0, str(item.get("type"))))
+    return grouped
+
+
+def result_to_trade_dicts_v05(
+    result: V05Result,
+    *,
+    include_markers: bool = True,
+) -> list[dict[str, Any]]:
+    """Serialise a V0.5 result into Web-ready closed-trade dicts (with markers)."""
+
+    grouped = _markers_by_trade(result)
+    trade_dicts: list[dict[str, Any]] = []
+    for trade in sorted(result.trades, key=lambda item: item.entry_time_utc):
+        detail = result.trade_details.get(trade.signal_id, {}) or {}
+        entry_et = to_et(trade.entry_time_utc)
+        exit_et = to_et(trade.exit_time_utc) if trade.exit_time_utc else None
+        trade_dicts.append(
+            {
+                "kind": "trade",
+                "trade_id": trade.signal_id,
+                "symbol": trade.symbol,
+                "strategy": trade.strategy.value,
+                "strategy_label": detail.get(
+                    "strategy_label", trade.strategy.value
+                ),
+                "direction": "LONG",
+                "shares": trade.shares,
+                "entry_time_utc": trade.entry_time_utc.isoformat(),
+                "entry_time_et": entry_et.strftime("%H:%M") if entry_et else None,
+                "entry_price_signal": trade.entry_price_signal,
+                "entry_price_fill": trade.entry_price_fill,
+                "stop_price": trade.stop_price,
+                "target_price": trade.target_price,
+                "exit_time_utc": trade.exit_time_utc.isoformat()
+                if trade.exit_time_utc
+                else None,
+                "exit_time_et": exit_et.strftime("%H:%M") if exit_et else None,
+                "exit_price_fill": trade.exit_price_fill,
+                "exit_reason": trade.exit_reason or "",
+                "exit_reason_detail": detail.get(
+                    "exit_reason_detail", trade.exit_reason or ""
+                ),
+                "exit_stop_kind": detail.get("exit_stop_kind"),
+                "pnl": round(trade.pnl, 4),
+                "r_multiple": round(trade.r_multiple, 4),
+                "holding_minutes": round(trade.holding_minutes, 2),
+                "entry_slippage_bps": round(trade.entry_slippage_bps, 3),
+                "max_mfe_r": detail.get("max_mfe_r"),
+                "ladder_stop_r": detail.get("ladder_stop_r"),
+                "markers": list(grouped.get(trade.signal_id, []))
+                if include_markers
+                else [],
+            }
+        )
+    return trade_dicts
+
+
+def evaluate_v05_session(
+    bars_1m: Sequence[Bar] | v02.V02Data,
+    session_date: date | str,
+    variant: V05Variant = V05_PRODUCTION_VARIANT,
+    config: AppConfig | None = None,
+) -> list[dict[str, Any]]:
+    """Replay one session and return Web-ready closed trades with markers.
+
+    Mirrors :func:`intraday_scalper.research.v04.evaluate_v04_session`: pass raw
+    1m bars (history + the target session, needed for indicator warm-up) or an
+    already prepared ``V02Data``.  The B1 risk base is applied and entries are the
+    frozen Step3c-A NoCap set; exits/OR30 are taken from ``variant``.
+    """
+
+    prepared = (
+        bars_1m if isinstance(bars_1m, v02.V02Data) else prepare_v02_data(bars_1m)
+    )
+    target = (
+        session_date
+        if isinstance(session_date, date)
+        else date.fromisoformat(str(session_date))
+    )
+    if target not in prepared.dates:
+        raise ValueError(
+            f"session date {target.isoformat()} not present in the supplied bars "
+            f"({prepared.dates[0].isoformat()}..{prepared.dates[-1].isoformat()})"
+        )
+    result = run_v05_backtest(
+        prepared,
+        config,
+        variant=variant,
+        session_dates=[target],
+    )
+    return result_to_trade_dicts_v05(result)

@@ -1,0 +1,139 @@
+{
+  "generated_at_utc": "2026-11-08T13:47:44.843527+00:00",
+  "version": "V0.5b",
+  "session_date": "2026-11-06",
+  "winner": "A+F",
+  "variant": {
+    "name": "A+F",
+    "exit_mode": "runner_a",
+    "or30_filter": "pct_or_atr",
+    "risk_dollars": 60.0,
+    "trend_box_filter": false
+  },
+  "data_source": "Alpaca IEX 1m bars, adjustment=raw, 2026-11-06 regular session (single venue; NOT consolidated tape)",
+  "summary": {
+    "total_trades": 1,
+    "wins": 0,
+    "losses": 1,
+    "win_rate_pct": 0.0,
+    "profit_factor": 0.0,
+    "net_pnl_dollars": -64.93,
+    "net_pct": -0.65,
+    "avg_r": -1.0068,
+    "max_drawdown_dollars": 64.93,
+    "max_drawdown_pct": 0.65,
+    "avg_holding_minutes": 53.0,
+    "total_slippage_dollars": 4.94,
+    "trading_days": 1,
+    "exit_reasons": {
+      "STOP": 1
+    },
+    "target_exits": 0,
+    "target_avg_r": 0.0,
+    "or30_skipped_evaluations": 0,
+    "sessions_run": 1
+  },
+  "markers": [
+    {
+      "type": "ENTRY",
+      "time_utc": "2026-11-06T17:40:00+00:00",
+      "price": 74.131118,
+      "symbol": "SOXS",
+      "strategy": "EMA_PULLBACK_5M",
+      "trade_id": "V05-000001",
+      "t": 1793986800000,
+      "detail": "",
+      "stop": 72.5396,
+      "target": 76.9808
+    },
+    {
+      "type": "STOP",
+      "time_utc": "2026-11-06T18:33:00+00:00",
+      "price": 72.528719,
+      "symbol": "SOXS",
+      "strategy": "EMA_PULLBACK_5M",
+      "trade_id": "V05-000001",
+      "t": 1793989980000,
+      "detail": "STOP"
+    }
+  ],
+  "markers_by_trade": {
+    "V05-000001": [
+      {
+        "type": "ENTRY",
+        "time_utc": "2026-11-06T17:40:00+00:00",
+        "price": 74.131118,
+        "symbol": "SOXS",
+        "strategy": "EMA_PULLBACK_5M",
+        "trade_id": "V05-000001",
+        "t": 1793986800000,
+        "detail": "",
+        "stop": 72.5396,
+        "target": 76.9808
+      },
+      {
+        "type": "STOP",
+        "time_utc": "2026-11-06T18:33:00+00:00",
+        "price": 72.528719,
+        "symbol": "SOXS",
+        "strategy": "EMA_PULLBACK_5M",
+        "trade_id": "V05-000001",
+        "t": 1793989980000,
+        "detail": "STOP"
+      }
+    ]
+  },
+  "trades": [
+    {
+      "kind": "trade",
+      "trade_id": "V05-000001",
+      "symbol": "SOXS",
+      "strategy": "EMA_PULLBACK",
+      "strategy_label": "EMA_PULLBACK_5M",
+      "direction": "LONG",
+      "shares": 40.52,
+      "entry_time_utc": "2026-11-06T17:40:00+00:00",
+      "entry_time_et": "12:40",
+      "entry_price_signal": 74.02,
+      "entry_price_fill": 74.13111800000001,
+      "stop_price": 72.5396,
+      "target_price": 76.9808,
+      "exit_time_utc": "2026-11-06T18:33:00+00:00",
+      "exit_time_et": "13:33",
+      "exit_price_fill": 72.52871906,
+      "exit_reason": "STOP",
+      "exit_reason_detail": "STOP (INITIAL)",
+      "exit_stop_kind": "INITIAL",
+      "pnl": -64.9292,
+      "r_multiple": -1.0068,
+      "holding_minutes": 53.0,
+      "entry_slippage_bps": 15.012,
+      "max_mfe_r": 1.1931,
+      "ladder_stop_r": -1.0,
+      "markers": [
+        {
+          "type": "ENTRY",
+          "time_utc": "2026-11-06T17:40:00+00:00",
+          "price": 74.131118,
+          "symbol": "SOXS",
+          "strategy": "EMA_PULLBACK_5M",
+          "trade_id": "V05-000001",
+          "t": 1793986800000,
+          "detail": "",
+          "stop": 72.5396,
+          "target": 76.9808
+        },
+        {
+          "type": "STOP",
+          "time_utc": "2026-11-06T18:33:00+00:00",
+          "price": 72.528719,
+          "symbol": "SOXS",
+          "strategy": "EMA_PULLBACK_5M",
+          "trade_id": "V05-000001",
+          "t": 1793989980000,
+          "detail": "STOP"
+        }
+      ]
+    }
+  ]
+}

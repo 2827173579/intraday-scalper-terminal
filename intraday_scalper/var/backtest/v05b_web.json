@@ -1,0 +1,366 @@
+{
+  "version": "V0.5b",
+  "winner": "A+F",
+  "period": {
+    "label": "A+F · 2026-08-01~11-06 ($10,000)",
+    "trades": 64,
+    "win_rate_pct": 43.75,
+    "target_hit_rate_pct": 4.69,
+    "target_exits": 3,
+    "target_avg_r": 4.4917,
+    "profit_factor": 1.2884,
+    "net": 573.91,
+    "net_pct": 5.74,
+    "final_equity": 10573.91,
+    "max_drawdown": 635.82,
+    "avg_r": 0.1468,
+    "months": {
+      "2026-08": {
+        "trades": 20,
+        "win_rate_pct": 35.0,
+        "profit_factor": 0.8527,
+        "net": -106.2
+      },
+      "2026-09": {
+        "trades": 20,
+        "win_rate_pct": 30.0,
+        "profit_factor": 0.4782,
+        "net": -372.87
+      },
+      "2026-10": {
+        "trades": 20,
+        "win_rate_pct": 70.0,
+        "profit_factor": 3.5628,
+        "net": 946.7
+      },
+      "2026-11": {
+        "trades": 4,
+        "win_rate_pct": 25.0,
+        "profit_factor": 1.5747,
+        "net": 106.28
+      }
+    }
+  },
+  "exit_structure": [
+    {
+      "category": "TARGET",
+      "count": 3,
+      "pct": 4.69,
+      "avg_pnl": 283.36,
+      "total_pnl": 850.08,
+      "avg_r": 4.4917
+    },
+    {
+      "category": "LADDER_STOP",
+      "count": 9,
+      "pct": 14.06,
+      "avg_pnl": 65.68,
+      "total_pnl": 591.13,
+      "avg_r": 1.2059
+    },
+    {
+      "category": "EOD_POSITIVE",
+      "count": 16,
+      "pct": 25.0,
+      "avg_pnl": 70.15,
+      "total_pnl": 1122.35,
+      "avg_r": 1.1361
+    },
+    {
+      "category": "EOD_NEGATIVE",
+      "count": 6,
+      "pct": 9.38,
+      "avg_pnl": -27.95,
+      "total_pnl": -167.71,
+      "avg_r": -0.4432
+    },
+    {
+      "category": "INITIAL_STOP",
+      "count": 30,
+      "pct": 46.88,
+      "avg_pnl": -60.73,
+      "total_pnl": -1821.94,
+      "avg_r": -1.015
+    }
+  ],
+  "compare": [
+    {
+      "name": "A",
+      "trades": 64,
+      "pf": 1.2884,
+      "net": 573.91,
+      "full_net": 247.34,
+      "full_pf": 1.01,
+      "wf_net": -178.58,
+      "wf_pf": 0.9914,
+      "wf_folds": 14
+    },
+    {
+      "name": "A+F",
+      "trades": 64,
+      "pf": 1.2884,
+      "net": 573.91,
+      "full_net": 884.15,
+      "full_pf": 1.0391,
+      "wf_net": 230.97,
+      "wf_pf": 1.0118,
+      "wf_folds": 14
+    },
+    {
+      "name": "A+F1",
+      "trades": 59,
+      "pf": 1.2921,
+      "net": 543.58,
+      "full_net": 562.64,
+      "full_pf": 1.0336,
+      "wf_net": -563.08,
+      "wf_pf": 0.9626,
+      "wf_folds": 13
+    },
+    {
+      "name": "A+F2",
+      "trades": 47,
+      "pf": 1.1738,
+      "net": 261.22,
+      "full_net": -179.94,
+      "full_pf": 0.9906,
+      "wf_net": 13.76,
+      "wf_pf": 1.0008,
+      "wf_folds": 15
+    },
+    {
+      "name": "A+F1+F2",
+      "trades": 43,
+      "pf": 1.2031,
+      "net": 279.11,
+      "full_net": 73.59,
+      "full_pf": 1.0055,
+      "wf_net": -381.46,
+      "wf_pf": 0.9689,
+      "wf_folds": 13
+    }
+  ],
+  "friday": {
+    "session_date": "2026-11-06",
+    "winner": "A+F",
+    "variant": {
+      "name": "A+F",
+      "exit_mode": "runner_a",
+      "or30_filter": "pct_or_atr",
+      "risk_dollars": 60.0,
+      "trend_box_filter": false
+    },
+    "market": {
+      "SOXL": {
+        "bars": 391,
+        "regular_bars": 390,
+        "post_close_bars": 1,
+        "session_open_utc": "2026-11-06T14:30:00+00:00",
+        "session_close_utc": "2026-11-06T21:00:00+00:00",
+        "open": 48.705,
+        "high": 49.4,
+        "low": 43.4,
+        "close": 45.87,
+        "range": 6.0,
+        "range_pct": 12.32,
+        "volume": 4813197.0,
+        "vwap": 46.2539,
+        "last_price_ok": true
+      },
+      "SOXS": {
+        "bars": 385,
+        "regular_bars": 385,
+        "post_close_bars": 0,
+        "session_open_utc": "2026-11-06T14:30:00+00:00",
+        "session_close_utc": "2026-11-06T21:00:00+00:00",
+        "open": 65.41,
+        "high": 76.03,
+        "low": 64.3,
+        "close": 71.07,
+        "range": 11.73,
+        "range_pct": 17.93,
+        "volume": 1421026.0,
+        "vwap": 71.2987,
+        "last_price_ok": true
+      }
+    },
+    "summary": {
+      "total_trades": 1,
+      "wins": 0,
+      "losses": 1,
+      "win_rate_pct": 0.0,
+      "profit_factor": 0.0,
+      "net_pnl_dollars": -64.93,
+      "net_pct": -0.65,
+      "avg_r": -1.0068,
+      "max_drawdown_dollars": 64.93,
+      "max_drawdown_pct": 0.65,
+      "avg_holding_minutes": 53.0,
+      "total_slippage_dollars": 4.94,
+      "trading_days": 1,
+      "exit_reasons": {
+        "STOP": 1
+      },
+      "target_exits": 0,
+      "target_avg_r": 0.0,
+      "or30_skipped_evaluations": 0,
+      "sessions_run": 1
+    },
+    "exit_reason_distribution": {
+      "STOP": 1
+    },
+    "trades": [
+      {
+        "kind": "trade",
+        "trade_id": "V05-000001",
+        "symbol": "SOXS",
+        "strategy": "EMA_PULLBACK",
+        "strategy_label": "EMA_PULLBACK_5M",
+        "direction": "LONG",
+        "shares": 40.52,
+        "entry_time_utc": "2026-11-06T17:40:00+00:00",
+        "entry_time_et": "12:40",
+        "entry_price_signal": 74.02,
+        "entry_price_fill": 74.13111800000001,
+        "stop_price": 72.5396,
+        "target_price": 76.9808,
+        "exit_time_utc": "2026-11-06T18:33:00+00:00",
+        "exit_time_et": "13:33",
+        "exit_price_fill": 72.52871906,
+        "exit_reason": "STOP",
+        "exit_reason_detail": "STOP (INITIAL)",
+        "exit_stop_kind": "INITIAL",
+        "pnl": -64.9292,
+        "r_multiple": -1.0068,
+        "holding_minutes": 53.0,
+        "entry_slippage_bps": 15.012,
+        "max_mfe_r": 1.1931,
+        "ladder_stop_r": -1.0,
+        "markers": [
+          {
+            "type": "ENTRY",
+            "time_utc": "2026-11-06T17:40:00+00:00",
+            "price": 74.131118,
+            "symbol": "SOXS",
+            "strategy": "EMA_PULLBACK_5M",
+            "trade_id": "V05-000001",
+            "t": 1793986800000,
+            "detail": "",
+            "stop": 72.5396,
+            "target": 76.9808
+          },
+          {
+            "type": "STOP",
+            "time_utc": "2026-11-06T18:33:00+00:00",
+            "price": 72.528719,
+            "symbol": "SOXS",
+            "strategy": "EMA_PULLBACK_5M",
+            "trade_id": "V05-000001",
+            "t": 1793989980000,
+            "detail": "STOP"
+          }
+        ]
+      }
+    ],
+    "markers": [
+      {
+        "type": "ENTRY",
+        "time_utc": "2026-11-06T17:40:00+00:00",
+        "price": 74.131118,
+        "symbol": "SOXS",
+        "strategy": "EMA_PULLBACK_5M",
+        "trade_id": "V05-000001",
+        "t": 1793986800000,
+        "detail": "",
+        "stop": 72.5396,
+        "target": 76.9808
+      },
+      {
+        "type": "STOP",
+        "time_utc": "2026-11-06T18:33:00+00:00",
+        "price": 72.528719,
+        "symbol": "SOXS",
+        "strategy": "EMA_PULLBACK_5M",
+        "trade_id": "V05-000001",
+        "t": 1793989980000,
+        "detail": "STOP"
+      }
+    ],
+    "filters": {
+      "or30_filter": "pct_or_atr",
+      "trend_box_filter": false,
+      "trend_box_rejected": 0,
+      "or30_skipped_evaluations": 0
+    }
+  },
+  "selection": {
+    "rule": "eligible = WF net > 0; score = WF net + 3M net + full net; new variant improving both 3M and WF but leading A+F by <5% is not a significant beat -> keep A+F; else take the highest composite score.",
+    "variants": {
+      "A": {
+        "window_net": 573.91,
+        "full_net": 247.34,
+        "wf_net": -178.58,
+        "wf_positive_folds": 14,
+        "composite_score": 642.67,
+        "wf_positive": false
+      },
+      "A+F": {
+        "window_net": 573.91,
+        "full_net": 884.15,
+        "wf_net": 230.97,
+        "wf_positive_folds": 14,
+        "composite_score": 1689.03,
+        "wf_positive": true
+      },
+      "A+F1": {
+        "window_net": 543.58,
+        "full_net": 562.64,
+        "wf_net": -563.08,
+        "wf_positive_folds": 13,
+        "composite_score": 543.14,
+        "wf_positive": false
+      },
+      "A+F2": {
+        "window_net": 261.22,
+        "full_net": -179.94,
+        "wf_net": 13.76,
+        "wf_positive_folds": 15,
+        "composite_score": 95.04,
+        "wf_positive": true
+      },
+      "A+F1+F2": {
+        "window_net": 279.11,
+        "full_net": 73.59,
+        "wf_net": -381.46,
+        "wf_positive_folds": 13,
+        "composite_score": -28.76,
+        "wf_positive": false
+      }
+    },
+    "eligible": [
+      "A+F",
+      "A+F2"
+    ],
+    "ranking": [
+      "A+F",
+      "A+F2"
+    ],
+    "best_by_score": "A+F",
+    "improved_both_vs_A+F": [],
+    "lead_pct_vs_A+F": {
+      "A+F1": -67.84,
+      "A+F2": -94.37,
+      "A+F1+F2": -101.7
+    },
+    "significant_beat_vs_A+F": {
+      "A+F1": false,
+      "A+F2": false,
+      "A+F1+F2": false
+    },
+    "winner": "A+F",
+    "no_significant_beat": false,
+    "significance_threshold_pct": 5.0,
+    "significance_conclusion": "无显著击败：没有任何新变体在 3M 与 WF 同时改善 A+F；F1/F2/F1+F2 的 3M 与 全周期净均更低，F1 与 F1+F2 的 WF 净为负。",
+    "verdict": "winner=A+F；无新变体同时改善 3M 与 WF，A+F 综合分最高，保留原版 A+F"
+  }
+}

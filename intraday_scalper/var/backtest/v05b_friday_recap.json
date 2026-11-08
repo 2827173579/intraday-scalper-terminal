@@ -1,0 +1,164 @@
+{
+  "generated_at_utc": "2026-11-08T13:47:44.843527+00:00",
+  "version": "V0.5b",
+  "session_date": "2026-11-06",
+  "winner": "A+F",
+  "variant": {
+    "name": "A+F",
+    "exit_mode": "runner_a",
+    "or30_filter": "pct_or_atr",
+    "risk_dollars": 60.0,
+    "trend_box_filter": false
+  },
+  "selection_verdict": "winner=A+F；无新变体同时改善 3M 与 WF，A+F 综合分最高，保留原版 A+F",
+  "structure": "V0.5b 预注册防震荡对比：入场固定 V0.4 Step3c-A NoCap（10:00-14:00 ET 窗、SMC 严格 AND、无 8% cap、无 Step4 分批），出场固定 Runner-A（MFE 1.5R→+0.20R、2.2R→+1.20R、3.0R→+2.00R、目标 4.5R、EOD 15:59），B1 风控 $10k/$60/名义$10k/碎股0.01/3 连亏停 15min/日-$320/15 笔每日。防震荡规则：A+F=原 OR30(1.8%/1.2ATR)；F1=修正 30m 尺度(2.8%/2.2ATR)；F2=趋势策略仅允许在 OR30 上沿或上半区+EMA21 3 根斜率>=+0.15% 时入场（SMC 不受限）。选择规则预注册：仅 WF净>0 的变体参与，综合分=WF净+3M净+全周期净；新变体若 3M 与 WF 同时改善但综合分领先 <5% 则视为无显著击败、保留原版 A+F。",
+  "data_source": "Alpaca IEX 1m bars, adjustment=raw, 2026-11-06 regular session (single venue; NOT consolidated tape)",
+  "caveat": "IEX 单一交易所口径：成交量/VWAP/相对活跃度均只含 IEX 份额，不是全市场 consolidated tape；V0.2 是对 V0.1 的结构性对比研究，不代表未来收益，也不构成投资建议。",
+  "market": {
+    "SOXL": {
+      "bars": 391,
+      "regular_bars": 390,
+      "post_close_bars": 1,
+      "session_open_utc": "2026-11-06T14:30:00+00:00",
+      "session_close_utc": "2026-11-06T21:00:00+00:00",
+      "open": 48.705,
+      "high": 49.4,
+      "low": 43.4,
+      "close": 45.87,
+      "range": 6.0,
+      "range_pct": 12.32,
+      "volume": 4813197.0,
+      "vwap": 46.2539,
+      "last_price_ok": true
+    },
+    "SOXS": {
+      "bars": 385,
+      "regular_bars": 385,
+      "post_close_bars": 0,
+      "session_open_utc": "2026-11-06T14:30:00+00:00",
+      "session_close_utc": "2026-11-06T21:00:00+00:00",
+      "open": 65.41,
+      "high": 76.03,
+      "low": 64.3,
+      "close": 71.07,
+      "range": 11.73,
+      "range_pct": 17.93,
+      "volume": 1421026.0,
+      "vwap": 71.2987,
+      "last_price_ok": true
+    }
+  },
+  "summary": {
+    "total_trades": 1,
+    "wins": 0,
+    "losses": 1,
+    "win_rate_pct": 0.0,
+    "profit_factor": 0.0,
+    "net_pnl_dollars": -64.93,
+    "net_pct": -0.65,
+    "avg_r": -1.0068,
+    "max_drawdown_dollars": 64.93,
+    "max_drawdown_pct": 0.65,
+    "avg_holding_minutes": 53.0,
+    "total_slippage_dollars": 4.94,
+    "trading_days": 1,
+    "exit_reasons": {
+      "STOP": 1
+    },
+    "target_exits": 0,
+    "target_avg_r": 0.0,
+    "or30_skipped_evaluations": 0,
+    "sessions_run": 1
+  },
+  "exit_reason_distribution": {
+    "STOP": 1
+  },
+  "trades": [
+    {
+      "kind": "trade",
+      "trade_id": "V05-000001",
+      "symbol": "SOXS",
+      "strategy": "EMA_PULLBACK",
+      "strategy_label": "EMA_PULLBACK_5M",
+      "direction": "LONG",
+      "shares": 40.52,
+      "entry_time_utc": "2026-11-06T17:40:00+00:00",
+      "entry_time_et": "12:40",
+      "entry_price_signal": 74.02,
+      "entry_price_fill": 74.13111800000001,
+      "stop_price": 72.5396,
+      "target_price": 76.9808,
+      "exit_time_utc": "2026-11-06T18:33:00+00:00",
+      "exit_time_et": "13:33",
+      "exit_price_fill": 72.52871906,
+      "exit_reason": "STOP",
+      "exit_reason_detail": "STOP (INITIAL)",
+      "exit_stop_kind": "INITIAL",
+      "pnl": -64.9292,
+      "r_multiple": -1.0068,
+      "holding_minutes": 53.0,
+      "entry_slippage_bps": 15.012,
+      "max_mfe_r": 1.1931,
+      "ladder_stop_r": -1.0,
+      "markers": [
+        {
+          "type": "ENTRY",
+          "time_utc": "2026-11-06T17:40:00+00:00",
+          "price": 74.131118,
+          "symbol": "SOXS",
+          "strategy": "EMA_PULLBACK_5M",
+          "trade_id": "V05-000001",
+          "t": 1793986800000,
+          "detail": "",
+          "stop": 72.5396,
+          "target": 76.9808
+        },
+        {
+          "type": "STOP",
+          "time_utc": "2026-11-06T18:33:00+00:00",
+          "price": 72.528719,
+          "symbol": "SOXS",
+          "strategy": "EMA_PULLBACK_5M",
+          "trade_id": "V05-000001",
+          "t": 1793989980000,
+          "detail": "STOP"
+        }
+      ]
+    }
+  ],
+  "markers": [
+    {
+      "type": "ENTRY",
+      "time_utc": "2026-11-06T17:40:00+00:00",
+      "price": 74.131118,
+      "symbol": "SOXS",
+      "strategy": "EMA_PULLBACK_5M",
+      "trade_id": "V05-000001",
+      "t": 1793986800000,
+      "detail": "",
+      "stop": 72.5396,
+      "target": 76.9808
+    },
+    {
+      "type": "STOP",
+      "time_utc": "2026-11-06T18:33:00+00:00",
+      "price": 72.528719,
+      "symbol": "SOXS",
+      "strategy": "EMA_PULLBACK_5M",
+      "trade_id": "V05-000001",
+      "t": 1793989980000,
+      "detail": "STOP"
+    }
+  ],
+  "filters": {
+    "or30_filter": "pct_or_atr",
+    "trend_box_filter": false,
+    "trend_box_rejected": 0,
+    "or30_skipped_evaluations": 0
+  },
+  "notes": [
+    "Winner of the pre-registered V0.5b selection; entries frozen to Step3c-A NoCap.",
+    "Markers feed the Web replay/terminal; types are ENTRY/STOP/TARGET/EOD_EXIT/TRAIL_EMA21 etc.",
+    "IEX single-venue data; research output, not proof of profitability."
+  ]
+}
