@@ -13,6 +13,12 @@ PYTHONPATH=. python -m intraday_scalper.web.terminal_server --port 8080
 
 打开 http://127.0.0.1:8080/
 
+## 静态快照页（已上线）
+
+https://2827173579.github.io/intraday-scalper-terminal/
+
+这是 GitHub Pages 静态快照（B1 复盘 + 真实出场结构 + 终端截图）；实时盘中版用下面的 Render 部署。
+
 ## 云端部署（Render，免费版）
 
 1. 打开 https://render.com/deploy?repo=https://github.com/2827173579/intraday-scalper-terminal
