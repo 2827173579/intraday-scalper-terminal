@@ -1243,9 +1243,13 @@ document.getElementById("soundToggle").addEventListener("click", () => {
   updateSoundButton();
   if (soundOn) { unlockAudio(); playAlertSound("ENTRY_SIGNAL"); }
 });
+const soundTestKinds = ["ENTRY_SIGNAL", "STOP_HIT_HINT", "RISK_BLOCK", "EOD_REMINDER"];
+let soundTestIndex = 0;
 document.getElementById("testAlert").addEventListener("click", () => {
   unlockAudio();
-  showBanner("ENTRY_SIGNAL", "测试报警：SOXL ORB_5M 买入信号（演示，不是真实信号）", "SOXL", false);
+  const kind = soundTestKinds[soundTestIndex % soundTestKinds.length];
+  soundTestIndex += 1;
+  showBanner(kind, "声音测试 · " + kind + "（演示，不是真实信号；再点一次切换下一种）", null, false);
 });
 document.getElementById("alertClose").addEventListener("click", () => {
   document.getElementById("alertBanner").classList.remove("show");
