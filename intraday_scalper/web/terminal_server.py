@@ -521,8 +521,21 @@ def replay_payload() -> Dict[str, Any]:
             )
     except Exception:  # noqa: BLE001
         pass
+    # Cloud hosts have no local parquet; fall back to the recap/markers session date.
+    session_date = local.get("session_date")
+    if not session_date:
+        if isinstance(recap, dict):
+            session_date = recap.get("session_date")
+    if not session_date and markers:
+        try:
+            first_marker = markers[0] if isinstance(markers, list) else markers
+            marker_ts = str(first_marker.get("time_utc") or "")
+            if marker_ts:
+                session_date = marker_ts[:10]
+        except Exception:  # noqa: BLE001
+            pass
     return {
-        "session_date": local.get("session_date"),
+        "session_date": session_date,
         "bars": local.get("bars", {}),
         "markers": markers,
         "recap": recap,
