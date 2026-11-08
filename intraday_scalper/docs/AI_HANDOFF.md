@@ -23,12 +23,12 @@ https://github.com/2827173579/intraday-scalper-terminal
 5. intraday_scalper/tools/run_v04c_ab.py、tools/analyze_exit_structure_10k.py
 
 当前状态（以代码和测试为准）：
-- 默认引擎：V0.4 Step3c-A NoCap（10:00–14:00 ET 入场窗；SMC 必须同时站上 EMA21 和 session VWAP；无 8% 防追高；无 Step4 分批止盈）
+- 默认引擎：V0.5 A+F（入场仍是 Step3c-A NoCap：10:00–14:00 ET / SMC 严格 AND / 无8% cap；出场 Runner-A：1.5R→+0.20R、2.2R→+1.20R、3.0R→+2.00R，目标 4.5R 或 15:59 EOD）
 - 默认风控：B1（$10,000 本金、单笔风险 $60、名义上限 $10,000、碎股 0.01、连亏 3 笔停 15 分钟、单日 -$320 熔断、每日最多 15 笔）
-- 3 个月（2026-08-01~11-06，raw IEX）B1：68 笔 / PF 1.2138 / 净 +$385.89 / MaxDD $703.82；真实 TARGET 2R 率 23.53%，保本盾 10 笔，EOD 14 笔（正 10/负 4），硬止损 28 笔（41.18%）
+- 3 个月（2026-08-01~11-06，raw IEX）V0.5 A+F + B1：64 笔 / PF 1.2884 / 净 +$573.91 (+5.74%) / MaxDD $635.82；真实 TARGET 4.69%，阶梯锁利 9 笔（均 +$65.68），EOD 22 笔（正16/负6），硬止损 30 笔（46.88%）；全周期 +$884.15，29折 WF +$230.97/14
 - Web：本地 FastAPI 之外的 stdlib ThreadingHTTPServer，127.0.0.1:8080；云端 Render 用 0.0.0.0 + $PORT + Basic Auth
 - 数据：Alpaca IEX 单交易所（不是 consolidated tape）；盘前/盘后 yfinance 5m prepost + Alpaca snapshot 合成；夜盘 20:00–04:00 不覆盖
-- 测试：622 passed
+- 测试：657 passed
 
 先回答我：
 A. 你对当前代码结构的理解；
