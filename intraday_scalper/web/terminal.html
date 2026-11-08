@@ -629,14 +629,17 @@ function unlockAudio() {
   } catch (err) { /* ignore */ }
 }
 
-function tone(freq, start, duration, type, gain) {
+function tone(freq, start, duration, type, gain, endFreq) {
   if (!soundOn || !audioCtx) return;
   const osc = audioCtx.createOscillator();
   const gainNode = audioCtx.createGain();
-  osc.type = type || "sine";
-  osc.frequency.value = freq;
+  osc.type = type || "square";
+  osc.frequency.setValueAtTime(freq, start);
+  if (endFreq) osc.frequency.linearRampToValueAtTime(endFreq, start + duration);
+  const peak = gain || 0.11;
   gainNode.gain.setValueAtTime(0.0001, start);
-  gainNode.gain.linearRampToValueAtTime(gain || 0.07, start + 0.02);
+  gainNode.gain.linearRampToValueAtTime(peak, start + 0.008);
+  gainNode.gain.setValueAtTime(peak, start + duration * 0.62);
   gainNode.gain.exponentialRampToValueAtTime(0.0001, start + duration);
   osc.connect(gainNode).connect(audioCtx.destination);
   osc.start(start);
@@ -648,16 +651,23 @@ function playAlertSound(kind) {
   if (!soundOn || !audioCtx) return;
   const now = audioCtx.currentTime + 0.01;
   if (kind.indexOf("ENTRY") >= 0 || kind.indexOf("TAKE_PROFIT") >= 0) {
-    tone(880, now, 0.14, "sine", 0.08);
-    tone(1320, now + 0.17, 0.22, "sine", 0.08);
-    tone(1760, now + 0.40, 0.20, "sine", 0.06);
+    // 1.4s rising siren: harsh square + sawtooth, designed to cut through noise.
+    tone(1250, now, 0.28, "square", 0.12, 1750);
+    tone(1500, now + 0.32, 0.28, "square", 0.12, 2100);
+    tone(1900, now + 0.64, 0.42, "sawtooth", 0.11, 2500);
+    tone(2350, now + 1.10, 0.30, "square", 0.09, 1800);
   } else if (kind.indexOf("STOP") >= 0 || kind.indexOf("RISK") >= 0) {
-    tone(440, now, 0.18, "square", 0.07);
-    tone(330, now + 0.22, 0.26, "square", 0.07);
-    tone(220, now + 0.52, 0.34, "square", 0.07);
+    // 1.35s two-tone alarm siren + low bed: deliberately ugly/piercing.
+    for (let i = 0; i < 4; i += 1) {
+      const freq = i % 2 === 0 ? 1750 : 1150;
+      tone(freq, now + i * 0.34, 0.30, "sawtooth", 0.14, freq * 1.18);
+    }
+    tone(420, now, 1.30, "square", 0.05, 380);
   } else if (kind.indexOf("EOD") >= 0) {
-    tone(660, now, 0.16, "triangle", 0.06);
-    tone(660, now + 0.22, 0.16, "triangle", 0.06);
+    // 1.35s triple high beep, warning but not as aggressive as STOP.
+    tone(1500, now, 0.35, "square", 0.11, 1800);
+    tone(1200, now + 0.40, 0.35, "square", 0.11, 1600);
+    tone(1800, now + 0.80, 0.55, "sawtooth", 0.09, 2200);
   }
 }
 
