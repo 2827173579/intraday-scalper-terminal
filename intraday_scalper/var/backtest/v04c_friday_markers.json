@@ -1,0 +1,154 @@
+{
+  "generated_at_utc": "2026-11-08T01:47:36.092461+00:00",
+  "session_date": "2026-11-06",
+  "data_source": "Alpaca IEX 1m bars, adjustment=raw, 2026-11-06 regular session (single venue; NOT consolidated tape)",
+  "variants": [
+    "NoCap",
+    "WithCap"
+  ],
+  "markers_by_variant": {
+    "NoCap": [
+      {
+        "type": "ENTRY",
+        "time_utc": "2026-11-06T17:40:00+00:00",
+        "price": 74.131118,
+        "symbol": "SOXS",
+        "strategy": "EMA_PULLBACK_5M",
+        "trade_id": "V04-000001",
+        "t": 1793986800000,
+        "detail": "",
+        "variant": "NoCap",
+        "stop": 72.5396,
+        "target": 76.9808
+      },
+      {
+        "type": "STOP",
+        "time_utc": "2026-11-06T18:33:00+00:00",
+        "price": 72.528719,
+        "symbol": "SOXS",
+        "strategy": "EMA_PULLBACK_5M",
+        "trade_id": "V04-000001",
+        "t": 1793989980000,
+        "detail": "STOP",
+        "variant": "NoCap"
+      }
+    ],
+    "WithCap": []
+  },
+  "markers": [
+    {
+      "type": "ENTRY",
+      "time_utc": "2026-11-06T17:40:00+00:00",
+      "price": 74.131118,
+      "symbol": "SOXS",
+      "strategy": "EMA_PULLBACK_5M",
+      "trade_id": "V04-000001",
+      "t": 1793986800000,
+      "detail": "",
+      "variant": "NoCap",
+      "stop": 72.5396,
+      "target": 76.9808
+    },
+    {
+      "type": "STOP",
+      "time_utc": "2026-11-06T18:33:00+00:00",
+      "price": 72.528719,
+      "symbol": "SOXS",
+      "strategy": "EMA_PULLBACK_5M",
+      "trade_id": "V04-000001",
+      "t": 1793989980000,
+      "detail": "STOP",
+      "variant": "NoCap"
+    }
+  ],
+  "reference_step3b_markers": [
+    {
+      "type": "ENTRY",
+      "time_utc": "2026-11-06T16:25:00+00:00",
+      "price": 46.246936,
+      "symbol": "SOXL",
+      "strategy": "SMC_SWEEP_5M",
+      "trade_id": "V04-000001",
+      "t": 1793982300000,
+      "detail": "",
+      "variant": "Step3b",
+      "stop": 45.3054,
+      "target": 48.0792
+    },
+    {
+      "type": "STOP",
+      "time_utc": "2026-11-06T17:33:00+00:00",
+      "price": 45.298604,
+      "symbol": "SOXL",
+      "strategy": "SMC_SWEEP_5M",
+      "trade_id": "V04-000001",
+      "t": 1793986380000,
+      "detail": "STOP",
+      "variant": "Step3b"
+    }
+  ],
+  "trades_by_variant": {
+    "NoCap": [
+      {
+        "trade_id": "V04-000001",
+        "symbol": "SOXS",
+        "strategy": "EMA_PULLBACK_5M",
+        "entry_time_utc": "2026-11-06T17:40:00+00:00",
+        "exit_time_utc": "2026-11-06T18:33:00+00:00",
+        "exit_reason": "STOP",
+        "pnl": -21.6324
+      }
+    ],
+    "WithCap": [],
+    "Step3b": [
+      {
+        "trade_id": "V04-000001",
+        "symbol": "SOXL",
+        "strategy": "SMC_SWEEP_5M",
+        "entry_time_utc": "2026-11-06T16:25:00+00:00",
+        "exit_time_utc": "2026-11-06T17:33:00+00:00",
+        "exit_reason": "STOP",
+        "pnl": -20.5124
+      }
+    ]
+  },
+  "traps": {
+    "11:25 SOXL SMC 接刀": {
+      "symbol": "SOXL",
+      "strategy": "SMC_SWEEP_5M",
+      "entry_time_utc": "2026-11-06T16:25:00+00:00",
+      "present_in": {
+        "Step3b": true,
+        "NoCap": false,
+        "WithCap": false
+      },
+      "step3b_diagnostics": {
+        "signal_bar_start_utc": "2026-11-06T16:20:00+00:00",
+        "strategy": "SMC_SWEEP_5M",
+        "symbol": "SOXL",
+        "close_5m": 46.23,
+        "ema21_5m": 45.6015,
+        "session_vwap": 46.651,
+        "session_low_so_far": 43.66,
+        "exhaustion_gain_pct": 5.89,
+        "exhaustion_blocked": false,
+        "close_ge_ema21": true,
+        "close_ge_vwap": false,
+        "smc_trend_confirm_ok": true
+      },
+      "and_confirm_ok": false,
+      "verdict": "✅ AND 双确认拦截：close 46.23 < VWAP 46.65"
+    },
+    "12:40 SOXS EMA 山顶追高": {
+      "symbol": "SOXS",
+      "strategy": "EMA_PULLBACK_5M",
+      "entry_time_utc": "2026-11-06T17:40:00+00:00",
+      "present_in": {
+        "Step3b": false,
+        "NoCap": true,
+        "WithCap": false
+      },
+      "verdict": "NoCap 恢复该信号并入账；WithCap 仍被 8% 锁拦截"
+    }
+  }
+}

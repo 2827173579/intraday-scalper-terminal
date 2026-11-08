@@ -1,0 +1,23 @@
+services:
+  - type: web
+    name: intraday-scalper-terminal
+    runtime: python
+    plan: free
+    autoDeploy: true
+    healthCheckPath: /healthz
+    buildCommand: pip install -r intraday_scalper/requirements.txt
+    startCommand: bash start.sh
+    envVars:
+      - key: PYTHON_VERSION
+        value: "3.12.7"
+      - key: PYTHONPATH
+        value: .
+      - key: TERMINAL_HOST
+        value: 0.0.0.0
+      # Set these three in the Render dashboard (sync:false keeps them out of git)
+      - key: ALPACA_API_KEY
+        sync: false
+      - key: ALPACA_SECRET_KEY
+        sync: false
+      - key: TERMINAL_PASSWORD
+        sync: false

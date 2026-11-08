@@ -1,0 +1,113 @@
+# =============================================================================
+# SOXL / SOXS Intraday Scalper — default configuration
+# =============================================================================
+# All values here are *starting points that must be validated by backtest*
+# (see intraday_scalper/docs and backtest/). Nothing in this file is a promise
+# of profitability.
+#
+# Secrets are NOT stored here. The Finnhub key is read from the
+# FINNHUB_API_KEY environment variable or the git-ignored intraday_scalper/.env.
+# =============================================================================
+
+# long_soxl | long_soxs | dual_watch
+mode: dual_watch
+
+# -----------------------------------------------------------------------------
+# Risk budget (reference account: $3,000)
+# -----------------------------------------------------------------------------
+risk:
+  account_equity: 3000.0            # reference equity used for sizing
+  max_risk_per_trade: 20.0          # $ risked between entry and stop, per trade
+  max_notional_per_trade: 1200.0    # $ notional cap per trade
+  max_daily_net_loss: 60.0          # hard daily loss circuit breaker ($)
+  max_entries_per_day: 15           # maximum entries per session (no minimum)
+  consecutive_stop_threshold: 2     # after this many stops in a row ...
+  consecutive_stop_cooldown_minutes: 20   # ... wait this long before a new entry
+  switch_cooldown_minutes: 5        # cooldown after switching SOXL <-> SOXS
+  allow_fractional_shares: false    # true only if the broker supports fractional ETF
+  fractional_precision: 5           # decimal places when fractional is enabled
+  est_slippage_bps: 1.5             # estimated one-way slippage used in risk display
+  commission_per_share: 0.0         # Firstrade: $0 commission; keep for accounting
+  min_reward_risk: 1.8              # reject candidates below this reward/risk
+  breakeven_hint_r: 1.2             # hint to move stop to breakeven at +1.2R
+  take_profit_hint_r: [2.0, 2.5]    # hint scale-out / full take-profit at 2.0R-2.5R
+
+# -----------------------------------------------------------------------------
+# Deterministic strategies (phase 1)
+# -----------------------------------------------------------------------------
+strategies:
+  ema_fast: 9
+  ema_slow: 21
+  rsi_period: 14
+  atr_period: 14
+
+  # Strategy A: Micro Opening Range Breakout
+  orb:
+    enabled_5m: true
+    enabled_15m: true
+    min_body_ratio: 0.55            # signal bar body / full range
+    min_volume_multiple: 1.5        # signal bar volume vs 20-bar average
+    trend_ema_period: 21            # close must be on the trend side of this EMA
+    atr_period: 14
+    stop_atr_multiple: 1.0          # structural stop distance in ATR(14)
+    min_stop_pct: 0.0025            # clamp: stop cannot be tighter than 0.25%
+    max_stop_pct: 0.02              # clamp: stop cannot be wider than 2%
+    target_r: 2.0
+    min_breakout_buffer_pct: 0.0005 # require a little room beyond the range edge
+
+  # Strategy B: VWAP Reclaim
+  vwap_reclaim:
+    enabled: true
+    min_volume_multiple: 1.2
+    ema_fast: 9
+    ema_slow: 21
+    atr_period: 14
+    stop_atr_multiple: 1.2
+    min_stop_pct: 0.003
+    max_stop_pct: 0.02
+    target_r: 2.0
+    reclaim_buffer_pct: 0.0005
+
+  # Strategy C: EMA Trend Pullback
+  ema_pullback:
+    enabled: true
+    ema_fast: 9
+    ema_slow: 21
+    vwap_trend_bars: 3              # bars price must have held the trend side of VWAP
+    atr_period: 14
+    stop_atr_multiple: 1.0
+    min_stop_pct: 0.0025
+    max_stop_pct: 0.02
+    target_r: 2.0
+    confirmation_body_ratio: 0.35
+
+# -----------------------------------------------------------------------------
+# Market data (Finnhub websocket-first)
+# -----------------------------------------------------------------------------
+data:
+  symbols: [SOXL, SOXS]
+  ws_url: wss://ws.finnhub.io
+  staleness_seconds: 90             # no fresh tick for this long => DATA_UNAVAILABLE
+  max_reconnect_attempts: 50
+  reconnect_backoff_initial_seconds: 1.0
+  reconnect_backoff_max_seconds: 60.0
+  reconnect_backoff_factor: 2.0
+  ws_open_timeout_seconds: 15.0
+  ws_ping_interval_seconds: 20.0
+  startup_quote_checks_max: 2       # REST /quote allowed only at startup, max 2 calls total
+  rest_timeout_seconds: 10.0
+  rest_min_interval_seconds: 1.1    # >= 1s between REST calls (free tier ~60/min)
+  rest_max_retries_429: 3           # 429 backoff retries
+  max_tick_age_seconds: 300.0       # reject ticks older than this
+  require_true_vwap: true           # never fake VWAP without volume
+
+# -----------------------------------------------------------------------------
+# Session / end-of-day rules (America/New_York, DST aware)
+# -----------------------------------------------------------------------------
+session:
+  no_new_entries_et: "15:30"
+  eod_check_et: "15:50"
+  eod_urgent_et: "15:55"
+  market_close_et: "16:00"
+  opening_range_5m_et: "09:35"
+  opening_range_15m_et: "09:45"

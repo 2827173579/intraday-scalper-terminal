@@ -1,0 +1,38 @@
+# Local-only artifacts of the intraday scalper. Never commit runtime data,
+# secrets or virtual environments.
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+
+# Secrets / local API configuration (root .gitignore also covers .env)
+.env
+.env.*
+!.env.example
+*.env
+
+# Runtime data: raw websocket ticks, aggregated bars, logs, journal, backtests
+var/
+logs/
+*.sqlite3
+*.sqlite3-journal
+*.db
+*.parquet
+*.jsonl
+data/raw/
+data/bars/
+
+# OS noise
+.DS_Store
+Thumbs.db
+
+# local secrets directory (OAuth client JSON, tokens)
+.secrets/
+# packaging / coverage noise
+dist/
+build/
+.coverage
+htmlcov/

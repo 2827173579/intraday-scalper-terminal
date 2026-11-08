@@ -1,0 +1,657 @@
+{
+  "generated_at_utc": "2026-11-08T01:47:36.091479+00:00",
+  "version": "V0.4c",
+  "session_date": "2026-11-06",
+  "data_source": "Alpaca IEX 1m bars, adjustment=raw, 2026-11-06 regular session (single venue; NOT consolidated tape)",
+  "caveat": "IEX 单一交易所口径：成交量/VWAP/相对活跃度均只含 IEX 份额，不是全市场 consolidated tape；V0.2 是对 V0.1 的结构性对比研究，不代表未来收益，也不构成投资建议。",
+  "market": {
+    "SOXL": {
+      "bars": 391,
+      "regular_bars": 390,
+      "post_close_bars": 1,
+      "session_open_utc": "2026-11-06T14:30:00+00:00",
+      "session_close_utc": "2026-11-06T21:00:00+00:00",
+      "open": 48.705,
+      "high": 49.4,
+      "low": 43.4,
+      "close": 45.87,
+      "range": 6.0,
+      "range_pct": 12.32,
+      "volume": 4813197.0,
+      "vwap": 46.2539,
+      "last_price_ok": true
+    },
+    "SOXS": {
+      "bars": 385,
+      "regular_bars": 385,
+      "post_close_bars": 0,
+      "session_open_utc": "2026-11-06T14:30:00+00:00",
+      "session_close_utc": "2026-11-06T21:00:00+00:00",
+      "open": 65.41,
+      "high": 76.03,
+      "low": 64.3,
+      "close": 71.07,
+      "range": 11.73,
+      "range_pct": 17.93,
+      "volume": 1421026.0,
+      "vwap": 71.2987,
+      "last_price_ok": true
+    }
+  },
+  "versions": {
+    "Step3b": {
+      "version": "Step3b",
+      "variant": {
+        "step": 5,
+        "name": "Step 3b · + 防追高/防接刀",
+        "strategies": [
+          "VWAP_RECLAIM_5M",
+          "EMA_PULLBACK_5M",
+          "SMC_SWEEP_5M"
+        ],
+        "allow_fractional_shares": true,
+        "fractional_precision": 2,
+        "entry_window_start_et": "10:00",
+        "entry_window_end_et": "14:00",
+        "vwap_trend_filter": true,
+        "smc_sweep": true,
+        "breakeven_shield": true,
+        "scale_out_1_2r": false,
+        "exhaustion_filter": true,
+        "smc_trend_confirm": true,
+        "smc_require_both": false
+      },
+      "engine": "v0.4 Step3b (SMC OR + 8% exhaustion cap) — reference",
+      "summary": {
+        "total_trades": 1,
+        "wins": 0,
+        "losses": 1,
+        "win_rate_pct": 0.0,
+        "profit_factor": 0.0,
+        "net_pnl_dollars": -20.51,
+        "avg_r": -1.0072,
+        "max_drawdown_dollars": 20.51,
+        "total_slippage_dollars": 0.51
+      },
+      "trades": [
+        {
+          "kind": "trade",
+          "trade_id": "V04-000001",
+          "symbol": "SOXL",
+          "strategy": "SMC_SWEEP_5M",
+          "direction": "LONG",
+          "mode": "dual_watch",
+          "shares": 21.63,
+          "entry_time_utc": "2026-11-06T16:25:00+00:00",
+          "entry_time_et": "11:25:00",
+          "entry_price_signal": 46.23,
+          "entry_price_fill": 46.246936000000005,
+          "stop_price": 45.3054,
+          "target_price": 48.07919999999999,
+          "exit_time_utc": "2026-11-06T17:33:00+00:00",
+          "exit_time_et": "12:33:00",
+          "exit_price_fill": 45.29860419,
+          "exit_reason": "STOP",
+          "exit_reason_detail": "STOP",
+          "exit_stop_kind": "INITIAL",
+          "pnl": -20.5124,
+          "r_multiple": -1.0072,
+          "holding_minutes": 68.0,
+          "entry_slippage_bps": 3.663,
+          "mae_r": 0.8942,
+          "mfe_r": 0.4865,
+          "scale_target_hit": false,
+          "breakeven_armed": false,
+          "partial_legs": [],
+          "risk_dollars": 20.3654,
+          "markers": [
+            {
+              "type": "ENTRY",
+              "time_utc": "2026-11-06T16:25:00+00:00",
+              "price": 46.246936,
+              "symbol": "SOXL",
+              "strategy": "SMC_SWEEP_5M",
+              "trade_id": "V04-000001",
+              "t": 1793982300000,
+              "detail": "",
+              "stop": 45.3054,
+              "target": 48.0792
+            },
+            {
+              "type": "STOP",
+              "time_utc": "2026-11-06T17:33:00+00:00",
+              "price": 45.298604,
+              "symbol": "SOXL",
+              "strategy": "SMC_SWEEP_5M",
+              "trade_id": "V04-000001",
+              "t": 1793986380000,
+              "detail": "STOP"
+            }
+          ],
+          "diagnostics": {
+            "signal_bar_start_utc": "2026-11-06T16:20:00+00:00",
+            "strategy": "SMC_SWEEP_5M",
+            "symbol": "SOXL",
+            "close_5m": 46.23,
+            "ema21_5m": 45.6015,
+            "session_vwap": 46.651,
+            "session_low_so_far": 43.66,
+            "exhaustion_gain_pct": 5.89,
+            "exhaustion_blocked": false,
+            "close_ge_ema21": true,
+            "close_ge_vwap": false,
+            "smc_trend_confirm_ok": true
+          },
+          "and_confirm_ok": false
+        }
+      ],
+      "markers": [
+        {
+          "type": "ENTRY",
+          "time_utc": "2026-11-06T16:25:00+00:00",
+          "price": 46.246936,
+          "symbol": "SOXL",
+          "strategy": "SMC_SWEEP_5M",
+          "trade_id": "V04-000001",
+          "t": 1793982300000,
+          "detail": "",
+          "variant": "Step3b",
+          "stop": 45.3054,
+          "target": 48.0792
+        },
+        {
+          "type": "STOP",
+          "time_utc": "2026-11-06T17:33:00+00:00",
+          "price": 45.298604,
+          "symbol": "SOXL",
+          "strategy": "SMC_SWEEP_5M",
+          "trade_id": "V04-000001",
+          "t": 1793986380000,
+          "detail": "STOP",
+          "variant": "Step3b"
+        }
+      ],
+      "diagnostics": {
+        "signals": 1,
+        "pending_cancelled": 0,
+        "risk_block_counts": {},
+        "window_skipped_evaluations": 30,
+        "breakeven_armed_trades": 0
+      }
+    },
+    "NoCap": {
+      "version": "NoCap",
+      "variant": {
+        "step": 6,
+        "name": "Step 3c-NoCap · SMC AND 双确认（无防追高）",
+        "strategies": [
+          "VWAP_RECLAIM_5M",
+          "EMA_PULLBACK_5M",
+          "SMC_SWEEP_5M"
+        ],
+        "allow_fractional_shares": true,
+        "fractional_precision": 2,
+        "entry_window_start_et": "10:00",
+        "entry_window_end_et": "14:00",
+        "vwap_trend_filter": true,
+        "smc_sweep": true,
+        "breakeven_shield": true,
+        "scale_out_1_2r": false,
+        "exhaustion_filter": false,
+        "smc_trend_confirm": true,
+        "smc_require_both": true
+      },
+      "engine": "v0.4 Step3c-A NoCap (SMC AND only)",
+      "summary": {
+        "total_trades": 1,
+        "wins": 0,
+        "losses": 1,
+        "win_rate_pct": 0.0,
+        "profit_factor": 0.0,
+        "net_pnl_dollars": -21.63,
+        "avg_r": -1.0068,
+        "max_drawdown_dollars": 21.63,
+        "total_slippage_dollars": 1.65
+      },
+      "trades": [
+        {
+          "kind": "trade",
+          "trade_id": "V04-000001",
+          "symbol": "SOXS",
+          "strategy": "EMA_PULLBACK_5M",
+          "direction": "LONG",
+          "mode": "dual_watch",
+          "shares": 13.5,
+          "entry_time_utc": "2026-11-06T17:40:00+00:00",
+          "entry_time_et": "12:40:00",
+          "entry_price_signal": 74.02,
+          "entry_price_fill": 74.13111800000001,
+          "stop_price": 72.5396,
+          "target_price": 76.9808,
+          "exit_time_utc": "2026-11-06T18:33:00+00:00",
+          "exit_time_et": "13:33:00",
+          "exit_price_fill": 72.52871906,
+          "exit_reason": "STOP",
+          "exit_reason_detail": "STOP",
+          "exit_stop_kind": "INITIAL",
+          "pnl": -21.6324,
+          "r_multiple": -1.0068,
+          "holding_minutes": 53.0,
+          "entry_slippage_bps": 15.012,
+          "mae_r": 0.6981,
+          "mfe_r": 1.1931,
+          "scale_target_hit": false,
+          "breakeven_armed": false,
+          "partial_legs": [],
+          "risk_dollars": 21.4855,
+          "markers": [
+            {
+              "type": "ENTRY",
+              "time_utc": "2026-11-06T17:40:00+00:00",
+              "price": 74.131118,
+              "symbol": "SOXS",
+              "strategy": "EMA_PULLBACK_5M",
+              "trade_id": "V04-000001",
+              "t": 1793986800000,
+              "detail": "",
+              "stop": 72.5396,
+              "target": 76.9808
+            },
+            {
+              "type": "STOP",
+              "time_utc": "2026-11-06T18:33:00+00:00",
+              "price": 72.528719,
+              "symbol": "SOXS",
+              "strategy": "EMA_PULLBACK_5M",
+              "trade_id": "V04-000001",
+              "t": 1793989980000,
+              "detail": "STOP"
+            }
+          ],
+          "diagnostics": {
+            "signal_bar_start_utc": "2026-11-06T17:35:00+00:00",
+            "strategy": "EMA_PULLBACK_5M",
+            "symbol": "SOXS",
+            "close_5m": 74.02,
+            "ema21_5m": 71.6649,
+            "session_vwap": 70.9181,
+            "session_low_so_far": 64.3,
+            "exhaustion_gain_pct": 15.12,
+            "exhaustion_blocked": true,
+            "close_ge_ema21": true,
+            "close_ge_vwap": true,
+            "smc_trend_confirm_ok": true
+          },
+          "and_confirm_ok": true
+        }
+      ],
+      "markers": [
+        {
+          "type": "ENTRY",
+          "time_utc": "2026-11-06T17:40:00+00:00",
+          "price": 74.131118,
+          "symbol": "SOXS",
+          "strategy": "EMA_PULLBACK_5M",
+          "trade_id": "V04-000001",
+          "t": 1793986800000,
+          "detail": "",
+          "variant": "NoCap",
+          "stop": 72.5396,
+          "target": 76.9808
+        },
+        {
+          "type": "STOP",
+          "time_utc": "2026-11-06T18:33:00+00:00",
+          "price": 72.528719,
+          "symbol": "SOXS",
+          "strategy": "EMA_PULLBACK_5M",
+          "trade_id": "V04-000001",
+          "t": 1793989980000,
+          "detail": "STOP",
+          "variant": "NoCap"
+        }
+      ],
+      "diagnostics": {
+        "signals": 1,
+        "pending_cancelled": 0,
+        "risk_block_counts": {},
+        "window_skipped_evaluations": 30,
+        "breakeven_armed_trades": 0
+      }
+    },
+    "WithCap": {
+      "version": "WithCap",
+      "variant": {
+        "step": 7,
+        "name": "Step 3c-WithCap · SMC AND 双确认 + 8% 防追高",
+        "strategies": [
+          "VWAP_RECLAIM_5M",
+          "EMA_PULLBACK_5M",
+          "SMC_SWEEP_5M"
+        ],
+        "allow_fractional_shares": true,
+        "fractional_precision": 2,
+        "entry_window_start_et": "10:00",
+        "entry_window_end_et": "14:00",
+        "vwap_trend_filter": true,
+        "smc_sweep": true,
+        "breakeven_shield": true,
+        "scale_out_1_2r": false,
+        "exhaustion_filter": true,
+        "smc_trend_confirm": true,
+        "smc_require_both": true
+      },
+      "engine": "v0.4 Step3c-B WithCap (SMC AND + 8% exhaustion cap)",
+      "summary": {
+        "total_trades": 0,
+        "wins": 0,
+        "losses": 0,
+        "win_rate_pct": 0.0,
+        "profit_factor": 0.0,
+        "net_pnl_dollars": 0.0,
+        "avg_r": 0.0,
+        "max_drawdown_dollars": 0.0,
+        "total_slippage_dollars": 0.0
+      },
+      "trades": [],
+      "markers": [],
+      "diagnostics": {
+        "signals": 0,
+        "pending_cancelled": 0,
+        "risk_block_counts": {},
+        "window_skipped_evaluations": 30,
+        "breakeven_armed_trades": 0
+      },
+      "zero_trade_reason": "当日 0 笔：10:00-14:00 入场窗内无 5m 策略触发，或触发后被趋势/AND 双确认/8% 防追高/风控过滤"
+    }
+  },
+  "markers_by_variant": {
+    "Step3b": [
+      {
+        "type": "ENTRY",
+        "time_utc": "2026-11-06T16:25:00+00:00",
+        "price": 46.246936,
+        "symbol": "SOXL",
+        "strategy": "SMC_SWEEP_5M",
+        "trade_id": "V04-000001",
+        "t": 1793982300000,
+        "detail": "",
+        "variant": "Step3b",
+        "stop": 45.3054,
+        "target": 48.0792
+      },
+      {
+        "type": "STOP",
+        "time_utc": "2026-11-06T17:33:00+00:00",
+        "price": 45.298604,
+        "symbol": "SOXL",
+        "strategy": "SMC_SWEEP_5M",
+        "trade_id": "V04-000001",
+        "t": 1793986380000,
+        "detail": "STOP",
+        "variant": "Step3b"
+      }
+    ],
+    "NoCap": [
+      {
+        "type": "ENTRY",
+        "time_utc": "2026-11-06T17:40:00+00:00",
+        "price": 74.131118,
+        "symbol": "SOXS",
+        "strategy": "EMA_PULLBACK_5M",
+        "trade_id": "V04-000001",
+        "t": 1793986800000,
+        "detail": "",
+        "variant": "NoCap",
+        "stop": 72.5396,
+        "target": 76.9808
+      },
+      {
+        "type": "STOP",
+        "time_utc": "2026-11-06T18:33:00+00:00",
+        "price": 72.528719,
+        "symbol": "SOXS",
+        "strategy": "EMA_PULLBACK_5M",
+        "trade_id": "V04-000001",
+        "t": 1793989980000,
+        "detail": "STOP",
+        "variant": "NoCap"
+      }
+    ],
+    "WithCap": []
+  },
+  "markers_by_variant_count": {
+    "Step3b": 2,
+    "NoCap": 2,
+    "WithCap": 0
+  },
+  "filter_effect_vs_step3b": {
+    "step3b_trade_count": 1,
+    "no_cap_trade_count": 1,
+    "with_cap_trade_count": 0,
+    "blocked_by_and_confirmation": [
+      {
+        "trade": {
+          "kind": "trade",
+          "trade_id": "V04-000001",
+          "symbol": "SOXL",
+          "strategy": "SMC_SWEEP_5M",
+          "direction": "LONG",
+          "mode": "dual_watch",
+          "shares": 21.63,
+          "entry_time_utc": "2026-11-06T16:25:00+00:00",
+          "entry_time_et": "11:25:00",
+          "entry_price_signal": 46.23,
+          "entry_price_fill": 46.246936000000005,
+          "stop_price": 45.3054,
+          "target_price": 48.07919999999999,
+          "exit_time_utc": "2026-11-06T17:33:00+00:00",
+          "exit_time_et": "12:33:00",
+          "exit_price_fill": 45.29860419,
+          "exit_reason": "STOP",
+          "exit_reason_detail": "STOP",
+          "exit_stop_kind": "INITIAL",
+          "pnl": -20.5124,
+          "r_multiple": -1.0072,
+          "holding_minutes": 68.0,
+          "entry_slippage_bps": 3.663,
+          "mae_r": 0.8942,
+          "mfe_r": 0.4865,
+          "scale_target_hit": false,
+          "breakeven_armed": false,
+          "partial_legs": [],
+          "risk_dollars": 20.3654,
+          "markers": [
+            {
+              "type": "ENTRY",
+              "time_utc": "2026-11-06T16:25:00+00:00",
+              "price": 46.246936,
+              "symbol": "SOXL",
+              "strategy": "SMC_SWEEP_5M",
+              "trade_id": "V04-000001",
+              "t": 1793982300000,
+              "detail": "",
+              "stop": 45.3054,
+              "target": 48.0792
+            },
+            {
+              "type": "STOP",
+              "time_utc": "2026-11-06T17:33:00+00:00",
+              "price": 45.298604,
+              "symbol": "SOXL",
+              "strategy": "SMC_SWEEP_5M",
+              "trade_id": "V04-000001",
+              "t": 1793986380000,
+              "detail": "STOP"
+            }
+          ],
+          "diagnostics": {
+            "signal_bar_start_utc": "2026-11-06T16:20:00+00:00",
+            "strategy": "SMC_SWEEP_5M",
+            "symbol": "SOXL",
+            "close_5m": 46.23,
+            "ema21_5m": 45.6015,
+            "session_vwap": 46.651,
+            "session_low_so_far": 43.66,
+            "exhaustion_gain_pct": 5.89,
+            "exhaustion_blocked": false,
+            "close_ge_ema21": true,
+            "close_ge_vwap": false,
+            "smc_trend_confirm_ok": true
+          },
+          "and_confirm_ok": false
+        },
+        "diagnostics": {
+          "signal_bar_start_utc": "2026-11-06T16:20:00+00:00",
+          "strategy": "SMC_SWEEP_5M",
+          "symbol": "SOXL",
+          "close_5m": 46.23,
+          "ema21_5m": 45.6015,
+          "session_vwap": 46.651,
+          "session_low_so_far": 43.66,
+          "exhaustion_gain_pct": 5.89,
+          "exhaustion_blocked": false,
+          "close_ge_ema21": true,
+          "close_ge_vwap": false,
+          "smc_trend_confirm_ok": true
+        },
+        "blocked_reason": "SMC AND 双确认失败：close<VWAP (close=46.23, vwap=46.651)"
+      }
+    ],
+    "blocked_by_8pct_cap": [
+      {
+        "trade": {
+          "kind": "trade",
+          "trade_id": "V04-000001",
+          "symbol": "SOXS",
+          "strategy": "EMA_PULLBACK_5M",
+          "direction": "LONG",
+          "mode": "dual_watch",
+          "shares": 13.5,
+          "entry_time_utc": "2026-11-06T17:40:00+00:00",
+          "entry_time_et": "12:40:00",
+          "entry_price_signal": 74.02,
+          "entry_price_fill": 74.13111800000001,
+          "stop_price": 72.5396,
+          "target_price": 76.9808,
+          "exit_time_utc": "2026-11-06T18:33:00+00:00",
+          "exit_time_et": "13:33:00",
+          "exit_price_fill": 72.52871906,
+          "exit_reason": "STOP",
+          "exit_reason_detail": "STOP",
+          "exit_stop_kind": "INITIAL",
+          "pnl": -21.6324,
+          "r_multiple": -1.0068,
+          "holding_minutes": 53.0,
+          "entry_slippage_bps": 15.012,
+          "mae_r": 0.6981,
+          "mfe_r": 1.1931,
+          "scale_target_hit": false,
+          "breakeven_armed": false,
+          "partial_legs": [],
+          "risk_dollars": 21.4855,
+          "markers": [
+            {
+              "type": "ENTRY",
+              "time_utc": "2026-11-06T17:40:00+00:00",
+              "price": 74.131118,
+              "symbol": "SOXS",
+              "strategy": "EMA_PULLBACK_5M",
+              "trade_id": "V04-000001",
+              "t": 1793986800000,
+              "detail": "",
+              "stop": 72.5396,
+              "target": 76.9808
+            },
+            {
+              "type": "STOP",
+              "time_utc": "2026-11-06T18:33:00+00:00",
+              "price": 72.528719,
+              "symbol": "SOXS",
+              "strategy": "EMA_PULLBACK_5M",
+              "trade_id": "V04-000001",
+              "t": 1793989980000,
+              "detail": "STOP"
+            }
+          ],
+          "diagnostics": {
+            "signal_bar_start_utc": "2026-11-06T17:35:00+00:00",
+            "strategy": "EMA_PULLBACK_5M",
+            "symbol": "SOXS",
+            "close_5m": 74.02,
+            "ema21_5m": 71.6649,
+            "session_vwap": 70.9181,
+            "session_low_so_far": 64.3,
+            "exhaustion_gain_pct": 15.12,
+            "exhaustion_blocked": true,
+            "close_ge_ema21": true,
+            "close_ge_vwap": true,
+            "smc_trend_confirm_ok": true
+          },
+          "and_confirm_ok": true
+        },
+        "diagnostics": {
+          "signal_bar_start_utc": "2026-11-06T17:35:00+00:00",
+          "strategy": "EMA_PULLBACK_5M",
+          "symbol": "SOXS",
+          "close_5m": 74.02,
+          "ema21_5m": 71.6649,
+          "session_vwap": 70.9181,
+          "session_low_so_far": 64.3,
+          "exhaustion_gain_pct": 15.12,
+          "exhaustion_blocked": true,
+          "close_ge_ema21": true,
+          "close_ge_vwap": true,
+          "smc_trend_confirm_ok": true
+        },
+        "blocked_reason": "EMA 衰竭防追高：close 较当日低点 +15.12% >= 8.0%"
+      }
+    ]
+  },
+  "traps": {
+    "11:25 SOXL SMC 接刀": {
+      "symbol": "SOXL",
+      "strategy": "SMC_SWEEP_5M",
+      "entry_time_utc": "2026-11-06T16:25:00+00:00",
+      "present_in": {
+        "Step3b": true,
+        "NoCap": false,
+        "WithCap": false
+      },
+      "step3b_diagnostics": {
+        "signal_bar_start_utc": "2026-11-06T16:20:00+00:00",
+        "strategy": "SMC_SWEEP_5M",
+        "symbol": "SOXL",
+        "close_5m": 46.23,
+        "ema21_5m": 45.6015,
+        "session_vwap": 46.651,
+        "session_low_so_far": 43.66,
+        "exhaustion_gain_pct": 5.89,
+        "exhaustion_blocked": false,
+        "close_ge_ema21": true,
+        "close_ge_vwap": false,
+        "smc_trend_confirm_ok": true
+      },
+      "and_confirm_ok": false,
+      "verdict": "✅ AND 双确认拦截：close 46.23 < VWAP 46.65"
+    },
+    "12:40 SOXS EMA 山顶追高": {
+      "symbol": "SOXS",
+      "strategy": "EMA_PULLBACK_5M",
+      "entry_time_utc": "2026-11-06T17:40:00+00:00",
+      "present_in": {
+        "Step3b": false,
+        "NoCap": true,
+        "WithCap": false
+      },
+      "verdict": "NoCap 恢复该信号并入账；WithCap 仍被 8% 锁拦截"
+    }
+  },
+  "notes": [
+    "V0.4c A/B: NoCap = SMC AND 双确认 only; WithCap = SMC AND + 8% EMA_PULLBACK 防追高; Step3b = SMC OR + 8% 防追高 (reference).",
+    "SMC AND requires close_5m >= EMA21 AND close_5m >= session VWAP (Step3b used OR).",
+    "Both filters only affect NEW entries; open positions keep their stops/targets/EOD logic.",
+    "Step1/Step3/Step3b/NoCap/WithCap all use the V0.3 1.2R single-stop breakeven shield (Step4 scale-out is deprecated).",
+    "IEX single-venue data; research output, not proof of profitability."
+  ]
+}
