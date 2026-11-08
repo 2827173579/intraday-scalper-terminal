@@ -757,6 +757,7 @@ function renderReplay(replay) {
   const recap = replay.recap || {};
   const markers = replay.markers || [];
   const versions = recap.versions || recap;
+  const fridayTrades = ((versions["V0.5"] || {}).trades) || [];
   let html = "";
   if (session) {
     html += '<div class="kv"><span class="k">回放交易日</span><span class="v">' + session + " ET</span></div>";
@@ -805,6 +806,18 @@ function renderReplay(replay) {
         cls(row.avg_pnl) + "'>" + (row.avg_pnl === undefined || row.avg_pnl === null ? "—" : money(row.avg_pnl)) + "</td></tr>").join("") +
       "</tbody></table>";
   }
+  if (fridayTrades.length) {
+    html += '<table class="trade-table" style="margin-top:7px"><thead><tr><th>周五交易</th><th>标的</th><th>ENTRY</th><th>EXIT</th><th>原因</th><th>PnL / R</th></tr></thead><tbody>' +
+      fridayTrades.map((t) => {
+        const entryTime = t.entry_time_et || (t.entry_time_utc ? fmtTime(Date.parse(t.entry_time_utc)) : "—");
+        const exitTime = t.exit_time_et || (t.exit_time_utc ? fmtTime(Date.parse(t.exit_time_utc)) : "—");
+        const pnl = Number(t.pnl);
+        const r = Number(t.r_multiple);
+        return "<tr><td>" + (t.strategy_label || t.strategy || "") + "</td><td>" + (t.symbol || "") +
+          "</td><td>" + entryTime + "</td><td>" + exitTime + "</td><td>" + (t.exit_reason || "") +
+          "</td><td class='" + cls(pnl) + "'>" + money(pnl) + " / " + (Number.isFinite(r) ? r.toFixed(3) + "R" : "—") + "</td></tr>";
+      }).join("") + "</tbody></table>";
+  }
   const compare = replay.compare || [];
   if (compare.length) {
     html += '<table class="trade-table" style="margin-top:7px"><thead><tr><th>变体</th><th>3M笔</th><th>3M PF</th><th>3M净$</th><th>全周期净$</th><th>WF净$</th><th>WF折</th></tr></thead><tbody>' +
@@ -829,6 +842,15 @@ function renderReplay(replay) {
       return name + " " + trades + " 笔 / " + (net === null || net === undefined ? "—" : money(net));
     }).join("   ｜   ");
     let exitLine = "";
+    let tradeLine = "";
+    if (fridayTrades.length) {
+      tradeLine = "<br><b style='color:var(--cyan)'>周五交易</b>：" + fridayTrades.map((t) => {
+        const entryTime = t.entry_time_et || (t.entry_time_utc ? fmtTime(Date.parse(t.entry_time_utc)) : "—");
+        const exitTime = t.exit_time_et || (t.exit_time_utc ? fmtTime(Date.parse(t.exit_time_utc)) : "—");
+        const pnl = Number(t.pnl);
+        return (t.symbol || "") + " " + entryTime + " ENTRY → " + exitTime + " " + (t.exit_reason || "") + " " + money(pnl);
+      }).join("；");
+    }
     const periodB1 = replay.period_b1 || {};
     let periodLine = "";
     if (periodB1.trades) {
@@ -852,7 +874,7 @@ function renderReplay(replay) {
         (stop.count ?? 0) + " 笔（" + (stop.pct ?? 0) + "%）";
     }
     inline.innerHTML = '<div class="pos-line" style="border-color:rgba(255,105,0,.35)">' +
-      "<b style='color:var(--accent)'>周五 " + (session || "最近交易日") + " 复盘</b>：" + line + periodLine + exitLine +
+      "<b style='color:var(--accent)'>周五 " + (session || "最近交易日") + " 复盘</b>：" + line + periodLine + tradeLine + exitLine +
       (warning ? "<br><span style='color:var(--yellow)'>⚠️ " + warning + "</span>" : "") + "</div>";
   }
 }
@@ -1161,13 +1183,14 @@ function drawChart() {
 
   // V0.4 replay markers (ENTRY / STOP / BREAKEVEN / TARGET / EXIT)
   const markerColors = {
-    ENTRY: "#00e676", STOP: "#ff5252", BREAKEVEN: "#facc15", TARGET: "#60a5fa", EXIT: "#22d3ee",
+    ENTRY: "#00e676", STOP: "#ff5252", BREAKEVEN: "#facc15", TARGET: "#facc15",
+    EXIT: "#22d3ee", LADDER_STOP: "#60a5fa", TRAIL_LOCK: "#60a5fa",
+    SHIELD_STOP: "#22d3ee", EXT_END_EXIT: "#fb923c", EOD_EXIT: "#fb923c",
   };
   const extMarkers = chart.extMode && state.extended
-    ? (state.extended.signals || []).filter((s) => s.symbol === chart.symbol).map((s) => ({
-        type: "ENTRY", price: s.entry, t: s.t, symbol: s.symbol,
-        extWindow: s.window, extType: s.type, strategy: s.type,
-      }))
+    ? ((state.extended.markers || state.extended.signals || [])
+        .filter((s) => s.symbol === chart.symbol)
+        .map((s) => ({ ...s, extType: s.type, type: s.type || "ENTRY" })))
     : [];
   const markerList = ((state.replay && state.replay.markers) || []).concat(
     (state.latest && state.latest.v04 && state.latest.v04.markers) || []
@@ -1178,40 +1201,44 @@ function drawChart() {
     if (sym && sym !== chart.symbol) continue;
     const type = String(marker.type || marker.event_type || marker.kind || "").toUpperCase();
     let color = markerColors[type] || "#8b95a7";
-    if (marker.extWindow === "pre") color = "#22d3ee";
-    if (marker.extWindow === "post") color = "#c084fc";
+    if (type === "ENTRY" && marker.extWindow === "pre") color = "#22d3ee";
+    if (type === "ENTRY" && marker.extWindow === "post") color = "#c084fc";
     const price = Number(marker.price ?? marker.level ?? marker.entry ?? marker.stop ?? marker.target);
     if (!Number.isFinite(price)) continue;
     const rawTime = marker.t ?? marker.time_utc ?? marker.ts_utc ?? marker.time;
     const t = typeof rawTime === "number" ? rawTime : Date.parse(String(rawTime || ""));
     if (!Number.isFinite(t)) continue;
+    // Snap to the latest candle bucket <= marker time (works for 1m/5m/15m/EXT 5m).
     let idx = -1;
     for (let i = bars.length - 1; i >= 0; i--) { if (bars[i].t <= t) { idx = i; break; } }
-    if (idx < 0) continue;
-    if (type === "ENTRY" || type === "STOP" || type === "TARGET" || type === "BREAKEVEN" || type === "EXIT") {
-      const x = padL + slot * idx + slot / 2;
-      const y = yOf(price);
-      ctx.strokeStyle = color; ctx.fillStyle = color; ctx.lineWidth = 1.6;
-      if (type === "ENTRY") {
-        ctx.beginPath(); ctx.moveTo(x, y - 9); ctx.lineTo(x - 6, y - 1); ctx.lineTo(x + 6, y - 1); ctx.closePath(); ctx.fill();
-      } else if (type === "STOP") {
-        ctx.beginPath(); ctx.moveTo(x, y + 9); ctx.lineTo(x - 6, y + 1); ctx.lineTo(x + 6, y + 1); ctx.closePath(); ctx.fill();
-      } else if (type === "TARGET") {
-        ctx.beginPath(); ctx.arc(x, y, 5, 0, Math.PI * 2); ctx.stroke();
-      } else if (type === "BREAKEVEN") {
-        ctx.beginPath(); ctx.moveTo(x, y - 5); ctx.lineTo(x + 5, y); ctx.lineTo(x, y + 5); ctx.lineTo(x - 5, y); ctx.closePath(); ctx.stroke();
-      } else {
-        ctx.strokeRect(x - 4, y - 4, 8, 8);
-      }
-      const alwaysLabel = type !== "ENTRY";
-      if (alwaysLabel || markerList.length <= 16) {
-        ctx.font = (alwaysLabel ? "bold 9px" : "9px") + " Consolas, monospace";
-        ctx.fillStyle = color;
-        ctx.textAlign = "center";
-        ctx.fillText(type, x, type === "ENTRY" ? y - 13 : y + 18);
-      }
-      drawn += 1;
+    if (idx < 0) idx = 0;  // marker before first visible bar -> first bar, never silently drop
+    if (!bars[idx]) continue;
+    const x = padL + slot * idx + slot / 2;
+    const y = yOf(price);
+    ctx.strokeStyle = color; ctx.fillStyle = color; ctx.lineWidth = 1.6;
+    if (type === "ENTRY") {
+      ctx.beginPath(); ctx.moveTo(x, y - 9); ctx.lineTo(x - 6, y - 1); ctx.lineTo(x + 6, y - 1); ctx.closePath(); ctx.fill();
+    } else if (type === "TARGET") {
+      ctx.beginPath(); ctx.arc(x, y, 5, 0, Math.PI * 2); ctx.stroke();
+    } else if (type === "BREAKEVEN") {
+      ctx.beginPath(); ctx.moveTo(x, y - 5); ctx.lineTo(x + 5, y); ctx.lineTo(x, y + 5); ctx.lineTo(x - 5, y); ctx.closePath(); ctx.stroke();
+    } else if (type === "EXT_END_EXIT" || type === "EOD_EXIT" || type === "EXIT") {
+      ctx.strokeRect(x - 4, y - 4, 8, 8);
+    } else {
+      // STOP / TRAIL_LOCK / LADDER_STOP / SHIELD_STOP -> down triangle
+      ctx.beginPath(); ctx.moveTo(x, y + 9); ctx.lineTo(x - 6, y + 1); ctx.lineTo(x + 6, y + 1); ctx.closePath(); ctx.fill();
     }
+    const alwaysLabel = type !== "ENTRY";
+    if (alwaysLabel || markerList.length <= 16) {
+      ctx.font = (alwaysLabel ? "bold 9px" : "9px") + " Consolas, monospace";
+      ctx.fillStyle = color;
+      ctx.textAlign = "center";
+      const rText = marker.r_multiple === undefined || marker.r_multiple === null
+        ? "" : " " + (Number(marker.r_multiple) >= 0 ? "+" : "") + Number(marker.r_multiple).toFixed(2) + "R";
+      const label = type === "ENTRY" ? "ENTRY" : type + rText;
+      ctx.fillText(label, x, type === "ENTRY" ? y - 13 : y + 18);
+    }
+    drawn += 1;
   }
 
   const visibleMarkers = markerList.filter((m) => String(m.symbol || "").toUpperCase() === chart.symbol);
@@ -1220,8 +1247,13 @@ function drawChart() {
     if (key) acc[key] = (acc[key] || 0) + 1;
     return acc;
   }, {});
-  const markerSummary = Object.keys(markerCounts).length
+  const entryCount = visibleMarkers.filter((m) => String(m.type || "").toUpperCase() === "ENTRY").length;
+  const exitCount = visibleMarkers.length - entryCount;
+  const typeDetail = Object.keys(markerCounts).length
     ? " · " + Object.entries(markerCounts).map(([k, v]) => k + " " + v).join(" / ")
+    : "";
+  const markerSummary = visibleMarkers.length
+    ? " · 标记 " + visibleMarkers.length + " 个 · ENTRY " + entryCount + " · EXIT " + exitCount + typeDetail
     : "";
   $("chartLegend").textContent =
     chart.symbol + " · " + (chart.interval === "D" ? "日K" : chart.interval + "m") +
@@ -1283,6 +1315,21 @@ if (extToggle) {
     extToggle.className = "pill " + (state.showExtended ? "on" : "");
     extToggle.textContent = state.showExtended ? "含盘前盘后" : "仅盘中";
     loadCandles();
+  });
+}
+const querySymbol = (new URLSearchParams(location.search).get("symbol") || "").toUpperCase();
+if (querySymbol === "SOXL" || querySymbol === "SOXS") {
+  state.symbol = querySymbol;
+  chart.symbol = querySymbol;
+  document.querySelectorAll(".watch-card").forEach((card) => {
+    card.classList.toggle("active", String(card.dataset.symbol || "").toUpperCase() === querySymbol);
+  });
+}
+const queryInterval = new URLSearchParams(location.search).get("interval");
+if (["1", "5", "15", "D"].includes(queryInterval)) {
+  state.interval = queryInterval;
+  document.querySelectorAll("#intervalSeg button").forEach((btn) => {
+    btn.classList.toggle("active", String(btn.dataset.interval) === queryInterval);
   });
 }
 loadCandles();

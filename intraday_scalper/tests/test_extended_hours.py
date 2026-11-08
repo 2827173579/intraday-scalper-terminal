@@ -76,6 +76,8 @@ def _regular_uptrend_with_pm_sweep() -> list[Bar]:
         price = 103 + index * 0.1
         bars.append(_bar(SESSION, 9, 30, o=price, h=price + 0.2, l=price - 0.2, c=price))
     bars.append(_bar(SESSION, 9, 40, o=104.0, h=106.5, l=99.0, c=105.5, volume=200))
+    # one later bar so the closed-loop state machine has a bar to exit on
+    bars.append(_bar(SESSION, 9, 45, o=105.5, h=106.0, l=105.2, c=105.8, volume=100))
     return bars
 
 
@@ -191,3 +193,18 @@ def test_merge_quote_appends_into_new_bucket_when_needed():
     assert len(merged) == 2
     assert merged[-1].start_utc == new_bucket
     assert merged[-1].close == pytest.approx(70.4)
+
+
+def test_extended_signals_have_paired_entry_exit_markers():
+    bars = _regular_uptrend_with_pm_sweep()
+    signals = ext.evaluate_extended_signals("SOXL", bars, session_date=SESSION)
+    assert signals, "expected at least one closed extended-hours trade"
+    for signal in signals:
+        markers = signal.get("markers") or []
+        types = [str(marker.get("type")).upper() for marker in markers]
+        assert types.count("ENTRY") == 1, types
+        assert len(types) == 2, types
+        assert types[1] != "ENTRY", types
+        assert signal.get("exit_reason") == markers[1].get("type")
+        assert "r_multiple" in markers[1]
+        assert "pnl_dollars" in markers[1]

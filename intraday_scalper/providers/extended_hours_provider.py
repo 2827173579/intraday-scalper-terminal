@@ -177,7 +177,7 @@ def _make_signal(
     return payload
 
 
-def evaluate_extended_signals(
+def _generate_extended_candidates(
     symbol: str,
     bars: Sequence[Bar],
     *,
@@ -347,6 +347,179 @@ def evaluate_extended_signals(
     return signals
 
 
+def _phase_end_utc(signal_dt: datetime, window: str) -> datetime:
+    et = signal_dt.astimezone(ET)
+    day = et.date()
+    if window == "pre":
+        end = datetime.combine(day, PRE_END, tzinfo=ET)
+    elif window == "post":
+        end = datetime.combine(day, POST_END, tzinfo=ET)
+    else:
+        end = datetime.combine(day, REGULAR_END, tzinfo=ET)
+    return end.astimezone(UTC)
+
+
+def _simulate_extended_signal(
+    signal: Dict[str, Any],
+    symbol_bars: Sequence[Bar],
+    *,
+    trade_id: str,
+    risk_dollars: float = 60.0,
+) -> Optional[Dict[str, Any]]:
+    """Close one extended-hours entry with stop / ladder / 4.5R / phase-end exit."""
+    signal_dt = datetime.fromisoformat(str(signal["time_utc"]))
+    entry = float(signal["entry"])
+    initial_stop = float(signal["stop"])
+    risk = entry - initial_stop
+    if risk <= 1e-9:
+        return None
+    window = str(signal.get("window") or "regular")
+    phase_end = _phase_end_utc(signal_dt, window)
+    bars = sorted(symbol_bars, key=lambda item: item.start_utc)
+    future = [
+        bar
+        for bar in bars
+        if bar.start_utc > signal_dt and bar.start_utc < phase_end
+    ]
+    if not future:
+        return None
+
+    target = entry + 4.5 * risk
+    stop = initial_stop
+    stop_kind = "INITIAL"
+    mfe = 0.0
+    exit_bar: Optional[Bar] = None
+    exit_price: Optional[float] = None
+    exit_reason = "EXT_END_EXIT"
+    last_bar: Optional[Bar] = None
+    for bar in future:
+        # completed-bar update: stop/target first (conservative), then ratchet for next bar
+        if float(bar.low) <= stop:
+            exit_bar, exit_price, exit_reason = bar, stop, "TRAIL_LOCK" if stop_kind != "INITIAL" else "STOP"
+            break
+        if float(bar.high) >= target:
+            exit_bar, exit_price, exit_reason = bar, target, "TARGET"
+            break
+        last_bar = bar
+        mfe = max(mfe, (float(bar.high) - entry) / risk)
+        if mfe >= 3.0 and stop < entry + 2.00 * risk:
+            stop = entry + 2.00 * risk
+            stop_kind = "LADDER_3.0R"
+        elif mfe >= 2.2 and stop < entry + 1.20 * risk:
+            stop = entry + 1.20 * risk
+            stop_kind = "LADDER_2.2R"
+        elif mfe >= 1.5 and stop < entry + 0.20 * risk:
+            stop = entry + 0.20 * risk
+            stop_kind = "LADDER_1.5R"
+    if exit_bar is None:
+        if last_bar is None:
+            return None
+        exit_bar = last_bar
+        exit_price = float(last_bar.close)
+        exit_reason = "EXT_END_EXIT"
+    r_multiple = (float(exit_price) - entry) / risk
+    pnl_dollars = r_multiple * risk_dollars
+    entry_marker = {
+        "type": "ENTRY",
+        "time_utc": signal_dt.isoformat(),
+        "t": int(signal_dt.timestamp() * 1000),
+        "price": round(entry, 4),
+        "symbol": signal["symbol"],
+        "strategy": signal.get("type"),
+        "trade_id": trade_id,
+        "window": window,
+        "extWindow": window,
+        "entry_time_utc": signal_dt.isoformat(),
+        "entry_price": round(entry, 4),
+        "stop": round(initial_stop, 4),
+        "target": round(target, 4),
+    }
+    exit_marker = {
+        "type": exit_reason,
+        "time_utc": exit_bar.start_utc.isoformat(),
+        "t": int(exit_bar.start_utc.timestamp() * 1000),
+        "price": round(float(exit_price), 4),
+        "symbol": signal["symbol"],
+        "strategy": signal.get("type"),
+        "trade_id": trade_id,
+        "window": window,
+        "extWindow": window,
+        "exit_reason": exit_reason,
+        "entry_time_utc": signal_dt.isoformat(),
+        "entry_price": round(entry, 4),
+        "r_multiple": round(r_multiple, 4),
+        "pnl_dollars": round(pnl_dollars, 2),
+        "pnl_pct": round((float(exit_price) / entry - 1.0) * 100.0, 3),
+        "stop_kind": stop_kind,
+        "target_r": 4.5,
+        "note": signal.get("note", ""),
+    }
+    completed = dict(signal)
+    completed.update(
+        {
+            "trade_id": trade_id,
+            "entry": round(entry, 4),
+            "stop": round(initial_stop, 4),
+            "target": round(target, 4),
+            "exit_time_utc": exit_bar.start_utc.isoformat(),
+            "exit_price": round(float(exit_price), 4),
+            "exit_reason": exit_reason,
+            "r_multiple": round(r_multiple, 4),
+            "pnl_dollars": round(pnl_dollars, 2),
+            "markers": [entry_marker, exit_marker],
+        }
+    )
+    return completed
+
+
+def evaluate_extended_signals(
+    symbol: str,
+    bars: Sequence[Bar],
+    *,
+    session_date: Optional[date] = None,
+    require_pm_sweep_confirm: bool = True,
+    min_signal_spacing_minutes: int = 20,
+) -> List[Dict[str, Any]]:
+    """Stateful extended-hours signals: one position at a time, every entry paired.
+
+    ``_generate_extended_candidates`` only proposes entry *times*; this wrapper
+    simulates each candidate with an initial stop, Runner-A ladder, 4.5R target,
+    and phase-end exit.  While one trade is open, later candidates are skipped,
+    so adjacent 5m bars cannot emit repeated orphan ENTRY markers.
+    """
+    candidates = _generate_extended_candidates(
+        symbol,
+        bars,
+        session_date=session_date,
+        require_pm_sweep_confirm=require_pm_sweep_confirm,
+        min_signal_spacing_minutes=min_signal_spacing_minutes,
+    )
+    if not candidates:
+        return []
+    ordered = sorted(candidates, key=lambda item: datetime.fromisoformat(str(item["time_utc"])))
+    completed: List[Dict[str, Any]] = []
+    busy_until: Optional[datetime] = None
+    sequence = 0
+    for candidate in ordered:
+        candidate_dt = datetime.fromisoformat(str(candidate["time_utc"]))
+        if busy_until is not None and candidate_dt < busy_until:
+            continue
+        sequence += 1
+        trade = _simulate_extended_signal(
+            candidate,
+            bars,
+            trade_id=f"EXT-{symbol}-{sequence:04d}",
+        )
+        if trade is None:
+            continue
+        completed.append(trade)
+        try:
+            busy_until = datetime.fromisoformat(str(trade["exit_time_utc"]))
+        except Exception:  # noqa: BLE001
+            busy_until = None
+    return completed
+
+
 def is_finite(value: float) -> bool:
     return isinstance(value, (int, float)) and math.isfinite(float(value))
 
@@ -388,12 +561,16 @@ def build_extended_context(symbol: str, bars: Sequence[Bar], session_date: Optio
             }
         )
     signals = evaluate_extended_signals(symbol, ordered, session_date=target_date)
+    markers: List[Dict[str, Any]] = []
+    for signal in signals:
+        markers.extend(signal.get("markers") or [])
     phases = [phase_of(bar.start_utc.astimezone(ET)) for bar in ordered if bar.start_utc.astimezone(ET).date() == target_date]
     return {
         "symbol": symbol,
         "bars": payload_bars,
         "pm": anchors,
         "signals": signals,
+        "markers": markers,
         "first_t": payload_bars[0]["t"] if payload_bars else None,
         "last_t": payload_bars[-1]["t"] if payload_bars else None,
         "phase_counts": {name: phases.count(name) for name in ("pre", "regular", "post")},
@@ -623,6 +800,7 @@ class ExtendedHoursProvider:
         latest_date = None
         bars = {}
         signals: List[Dict[str, Any]] = []
+        markers: List[Dict[str, Any]] = []
         pm = {}
         bar_ages: Dict[str, float] = {}
         now = datetime.now(UTC)
@@ -630,6 +808,7 @@ class ExtendedHoursProvider:
             bars[symbol] = context.get("bars", [])
             pm[symbol] = context.get("pm", {})
             signals.extend(context.get("signals", []))
+            markers.extend(context.get("markers", []))
             if context.get("bars"):
                 last_dt = datetime.fromtimestamp(context["bars"][-1]["t"] / 1000, tz=UTC)
                 latest_date = last_dt.astimezone(ET).date()
@@ -642,6 +821,7 @@ class ExtendedHoursProvider:
             "symbols": bars,
             "pm": pm,
             "signals": signals,
+            "markers": markers,
             "quotes": dict(self._quotes),
             "data_age_seconds": round(max(ages), 1) if ages else None,
             "bar_ages_seconds": bar_ages,
