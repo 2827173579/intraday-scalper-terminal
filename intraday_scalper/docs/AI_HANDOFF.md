@@ -119,3 +119,100 @@ Known constraints: data parquet files are not in the public repo (3-month backte
 - **先让它读 `CLAUDE.md` + 仓库**，再让它给计划；不要一上来就改。
 - 每次只派一个明确任务，并把"不要改默认引擎/风控、不要接自动下单、不要提交密钥"写死。
 - 任何回测/参数改动，要求它给 **A/B + 29 折 WF + 测试结果**，否则不要合入。
+
+
+---
+
+## 六、换一台没有本地文件的电脑时，怎么说
+
+> 关键前提：GitHub 仓库是**代码唯一来源**；`data/*.parquet`、`.env` 不在仓库里。
+> 新电脑只能做：读代码、跑离线测试、改前端、改研究代码、提交 PR。
+> **不能**直接复现 3 个月回测，除非你把 `data/` 目录拷过去或重新下载。
+
+### 直接发给 AI 的「远程电脑版」
+
+```text
+你在一台全新的电脑上接手项目，本地没有任何项目文件。请以 GitHub 仓库为唯一代码来源，先 clone，不要改代码，先给计划。
+
+仓库：
+git clone https://github.com/2827173579/intraday-scalper-terminal
+cd intraday-scalper-terminal
+
+项目包在 intraday_scalper/ 子目录，不是仓库根目录：
+- 代码：intraday_scalper/
+- 测试：intraday_scalper/tests/
+- Web：intraday_scalper/web/
+- 研究/回测：intraday_scalper/research/、intraday_scalper/tools/
+- 部署：仓库根目录 render.yaml / start.sh / Dockerfile
+
+先读：
+1. intraday_scalper/CLAUDE.md（工程守则，优先级最高）
+2. intraday_scalper/docs/AI_HANDOFF.md
+3. intraday_scalper/web/README.md
+4. intraday_scalper/research/v04.py、web/terminal_server.py、web/terminal.html
+
+环境（Windows 示例）：
+cd intraday-scalper-terminal
+python -m venv .venv
+.venv\Scripts\pip install -r intraday_scalper/requirements.txt
+set PYTHONPATH=.
+copy intraday_scalper\.env.example intraday_scalper\.env
+（然后由我本人填 Alpaca key，不要把 key 发给你、不要写入代码/日志）
+
+Mac/Linux：
+python3 -m venv .venv
+.venv/bin/pip install -r intraday_scalper/requirements.txt
+export PYTHONPATH=.
+cp intraday_scalper/.env.example intraday_scalper/.env
+
+硬性约束：
+1. 只修改 intraday_scalper/ 目录内的文件；
+2. 不接券商自动下单，只做提醒/风控；
+3. 不改默认引擎 V0.4 Step3c-A NoCap 和 B1 风控，除非我明确要求；
+4. 绝不提交 .env、API key、密码；不要自动 git commit / push，等我确认；
+5. 数据口径保留：Alpaca IEX 是单一交易所，不是 consolidated tape；
+6. 改完必须跑：
+   Windows: intraday_scalper\.venv\Scripts\python.exe -m pytest intraday_scalper\tests -q
+   Mac/Linux: PYTHONPATH=. .venv/bin/python -m pytest intraday_scalper/tests -q
+   前端改动还要 node --check 校验内联 script。
+
+重要数据限制（不要自欺）：
+- 仓库没有 data/*.parquet（体积大），所以 2026-08~11 的 $10,000 回测、v04c A/B、B1 统计都**不能直接复现**；
+- 没有数据时不要运行/伪造回测结果，不要编造 PF/净值；
+- 只能跑离线测试（622 个，全部 mock/合成数据，不需要网络和真实数据）；
+- 如果要跑真实回测，让我把 data/ 目录用网盘/移动硬盘拷过去，或让我提供数据路径。
+
+工作方式：
+- 先给方案，再改代码；一次只做一个任务；
+- 每步给：改了哪些文件、为什么、测试命令/结果、剩余风险；
+- 不要动 main 分支的默认参数；需要提交时先给我 diff，我说可以再 commit/push。
+```
+
+### 新电脑需要提前装什么
+
+- **Git**：用来 clone/push；
+- **Python 3.12**：项目要求 Python 3.12；
+- **Node.js**（可选）：只用于 `node --check` 校验前端 JS；
+- **Alpaca key**：本机 `.env` 自己填；最安全是直接用 Render 上已有的环境变量，不需要把 key 给新电脑上的 AI；
+- **如果要回测**：把本机 `intraday_scalper/data/` 整个目录复制过去（约 45MB parquet），或者用 Alpaca 重新拉数据。
+
+### 绝对不要把下面这些发给 AI
+
+- `intraday_scalper/.env`（含 Alpaca key）
+- Render 的 `TERMINAL_PASSWORD`
+- 你贴过的 Basic Auth 账号密码
+- `data/` 里的私有导出数据（如果不想公开）
+
+### 推荐工作流（另一台电脑）
+
+```bash
+git clone https://github.com/2827173579/intraday-scalper-terminal
+cd intraday-scalper-terminal
+git checkout -b dev-<task>
+# 改代码 + 跑测试
+git add intraday_scalper/...
+git commit -m "feat: ..."
+git push -u origin dev-<task>
+```
+
+然后你自己在 GitHub 上 review/merge 到 `main`；Render 部署的是 `main`，合并后再 Manual Deploy 或等自动部署。不要让 AI 直接 push `main`。
