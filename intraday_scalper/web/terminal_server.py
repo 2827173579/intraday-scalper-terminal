@@ -47,7 +47,11 @@ WEB_DIR = Path(__file__).resolve().parent
 HTML_PATH = WEB_DIR / "terminal.html"
 ET = ZoneInfo("America/New_York")
 KST = ZoneInfo("Asia/Seoul")
-SYMBOLS = ("SOXL", "SOXS")
+UTC = timezone.utc
+US_EQUITY_SYMBOLS = ("SOXL", "SOXS")
+CRYPTO_SYMBOLS = ("BTCUSD",)
+ALL_SYMBOLS = ("SOXL", "SOXS", "BTCUSD")
+SYMBOLS = ALL_SYMBOLS
 FORCED_FLAT_ET = dt_time(15, 55)
 REGULAR_OPEN_ET = dt_time(9, 30)
 REGULAR_CLOSE_ET = dt_time(16, 0)
@@ -56,6 +60,36 @@ TREND_FAST = 9
 TREND_SLOW = 21
 SWEEP_LOOKBACK = 20
 SIGNALS_DIR = PACKAGE_ROOT / "var" / "live_signals"
+
+
+def normalize_symbol(symbol: Optional[str]) -> str:
+    """Normalize symbols (e.g. BTC/USD, btcusd, btc -> BTCUSD)."""
+    if not symbol:
+        return "SOXL"
+    s = str(symbol).strip().upper().replace("/", "").replace("-", "")
+    if s in ("BTC", "BTCUSD", "XBTUSD"):
+        return "BTCUSD"
+    if s in ("SOXL", "SOXS"):
+        return s
+    return str(symbol).strip().upper()
+
+
+def is_crypto_symbol(symbol: str) -> bool:
+    return normalize_symbol(symbol) in CRYPTO_SYMBOLS
+
+
+def btc_session_tag(moment: Optional[datetime] = None) -> str:
+    """Return 8-hour global liquidity session tag for BTC/USD."""
+    now = moment or datetime.now(timezone.utc)
+    if now.tzinfo is None:
+        now = now.replace(tzinfo=timezone.utc)
+    hour = now.astimezone(timezone.utc).hour
+    if 0 <= hour < 8:
+        return "🌏 亚盘 00-08 UTC"
+    if 8 <= hour < 16:
+        return "🌍 欧盘 08-16 UTC"
+    return "🌎 美盘 16-24 UTC"
+
 
 
 # --------------------------------------------------------------------------- #
@@ -238,8 +272,7 @@ def aggregate_timeframe(bars_1m: Sequence[Dict[str, Any]], minutes: int) -> List
 
 
 def ema(values: Sequence[float], span: int) -> List[float]:
-
-    if not values:
+    if len(values) == 0:
         return []
     alpha = 2.0 / (span + 1.0)
     out = [float(values[0])]
@@ -325,12 +358,27 @@ def load_local_session(symbols: Sequence[str] = SYMBOLS) -> Dict[str, Any]:
     return {"session_date": str(session_date), "records": records, "bars": bars}
 
 
+BTC_DATA_PATH = LOCAL_DATA_DIR / "BTCUSD_5m_2024_2026.parquet"
+
+
 def derive_prev_closes_local(symbols: Sequence[str] = SYMBOLS) -> Dict[str, float]:
     """Fallback previous-session closes from the local raw parquet files."""
     import pandas as pd
 
     out: Dict[str, float] = {}
     for symbol in symbols:
+        norm = normalize_symbol(symbol)
+        if norm in CRYPTO_SYMBOLS:
+            if BTC_DATA_PATH.exists():
+                try:
+                    frame = pd.read_parquet(BTC_DATA_PATH, columns=["start_utc", "close"])
+                    frame["start_utc"] = pd.to_datetime(frame["start_utc"], utc=True)
+                    daily = frame.groupby(frame["start_utc"].dt.date)["close"].last().sort_index()
+                    if len(daily) >= 2:
+                        out[symbol] = float(daily.iloc[-2])
+                except Exception:  # noqa: BLE001
+                    pass
+            continue
         path = LOCAL_DATA_DIR / f"{symbol}_1m_raw.parquet"
         if not path.exists():
             continue
@@ -353,7 +401,7 @@ def load_local_history_bars(max_sessions: int = 30) -> List[Bar]:
     import pandas as pd
 
     frames = []
-    for symbol in SYMBOLS:
+    for symbol in US_EQUITY_SYMBOLS:
         path = LOCAL_DATA_DIR / f"{symbol}_1m_raw.parquet"
         if not path.exists():
             continue
@@ -584,6 +632,658 @@ def replay_payload() -> Dict[str, Any]:
     }
 
 
+# --------------------------------------------------------------------------- #
+# BTC/USD 24/7 Spot Radar: A+F_Wide(0.8%)+Macro
+# --------------------------------------------------------------------------- #
+def _crypto_historical_client() -> Any:
+    from alpaca.data.historical.crypto import CryptoHistoricalDataClient
+
+    return CryptoHistoricalDataClient()
+
+
+def load_btcusd_parquet(timeframe: str = "5m", limit: int = 300) -> List[Dict[str, Any]]:
+    """Load BTC/USD bars from local 5m parquet file with fallback aggregation."""
+    import pandas as pd
+
+    if not BTC_DATA_PATH.exists():
+        return []
+    try:
+        df = pd.read_parquet(BTC_DATA_PATH)
+        df["start_utc"] = pd.to_datetime(df["start_utc"], utc=True)
+        tf = timeframe.lower()
+        if tf in ("15m", "15min"):
+            df["bucket"] = df["start_utc"].dt.floor("15min")
+            grouped = df.groupby("bucket").agg(
+                open=("open", "first"),
+                high=("high", "max"),
+                low=("low", "min"),
+                close=("close", "last"),
+                volume=("volume", "sum"),
+            ).reset_index().rename(columns={"bucket": "start_utc"})
+            df = grouped
+        elif tf in ("1d", "1day"):
+            df["date"] = df["start_utc"].dt.date
+            grouped = df.groupby("date").agg(
+                start_utc=("start_utc", "first"),
+                open=("open", "first"),
+                high=("high", "max"),
+                low=("low", "min"),
+                close=("close", "last"),
+                volume=("volume", "sum"),
+            ).reset_index()
+            df = grouped
+        tail = df.tail(limit)
+        bars: List[Dict[str, Any]] = []
+        for row in tail.itertuples(index=False):
+            start = row.start_utc.to_pydatetime() if hasattr(row.start_utc, "to_pydatetime") else row.start_utc
+            bars.append(
+                {
+                    "t": int(start.timestamp() * 1000),
+                    "o": round(float(row.open), 2),
+                    "h": round(float(row.high), 2),
+                    "l": round(float(row.low), 2),
+                    "c": round(float(row.close), 2),
+                    "v": round(float(row.volume), 4),
+                    "start_utc": start,
+                }
+            )
+        return bars
+    except Exception as exc:  # noqa: BLE001
+        print(f"[terminal] load_btcusd_parquet error: {exc}", flush=True)
+        return []
+
+
+def fetch_btcusd_bars(timeframe: str = "5m", limit: int = 300) -> List[Dict[str, Any]]:
+    """Fetch live BTC/USD bars from Alpaca Crypto, fallback to local parquet."""
+    try:
+        from alpaca.data.requests import CryptoBarsRequest
+        from alpaca.data.timeframe import TimeFrame, TimeFrameUnit
+
+        tf_map = {
+            "1m": TimeFrame(1, TimeFrameUnit.Minute),
+            "5m": TimeFrame(5, TimeFrameUnit.Minute),
+            "15m": TimeFrame(15, TimeFrameUnit.Minute),
+            "1d": TimeFrame(1, TimeFrameUnit.Day),
+            "1D": TimeFrame(1, TimeFrameUnit.Day),
+        }
+        client = _crypto_historical_client()
+        tf = tf_map.get(timeframe, TimeFrame(5, TimeFrameUnit.Minute))
+        now = datetime.now(timezone.utc)
+        delta = timedelta(days=200 if timeframe.lower() == "1d" else (4 if timeframe == "15m" else 2))
+        req = CryptoBarsRequest(
+            symbol_or_symbols=["BTC/USD"],
+            timeframe=tf,
+            start=now - delta,
+            limit=limit,
+        )
+        bar_data = client.get_crypto_bars(req).data.get("BTC/USD") or []
+        if bar_data:
+            out: List[Dict[str, Any]] = []
+            for b in bar_data:
+                ts = b.timestamp
+                if ts.tzinfo is None:
+                    ts = ts.replace(tzinfo=timezone.utc)
+                out.append(
+                    {
+                        "t": int(ts.timestamp() * 1000),
+                        "o": round(float(b.open), 2),
+                        "h": round(float(b.high), 2),
+                        "l": round(float(b.low), 2),
+                        "c": round(float(b.close), 2),
+                        "v": round(float(b.volume), 4),
+                        "start_utc": ts,
+                    }
+                )
+            return out
+    except Exception:  # noqa: BLE001
+        pass
+    return load_btcusd_parquet(timeframe, limit)
+
+
+def evaluate_btcusd_session(
+    bars_5m: Sequence[Any],
+    *,
+    fee_bps: float = 1.5,
+    risk_per_trade: float = 60.0,
+    notional_cap: float = 10_000.0,
+    min_stop_pct: float = 0.0080,
+    max_stop_pct: float = 0.0250,
+) -> Dict[str, Any]:
+    """Evaluate the BTC/USD 24/7 Spot Radar strategy: A+F_Wide(0.8%)+Macro.
+
+    Algorithm rules:
+    1. 8h-Session VWAP anchored at 00:00, 08:00, 16:00 UTC (Asia, Europe, US).
+    2. Macro EMA Gate: close > ema_d20 and ema_d20 >= ema_d50 * 0.99.
+    3. Volatility Filter (F): atr14 / close >= 0.0016 and range6 >= 1.35 * atr14.
+    4. Setups:
+       - SMC_SWEEP_L: low < prior20_low and close > prior20_low and close > ema21 and close > session_vwap and close > open.
+       - EMA_PULL_L: close > session_vwap and ema9 > ema21 and ema21 >= ema50 * 0.999 and low <= ema9 * 1.0005 and low >= ema21 * 0.9985 and close > ema9 and close > open and (close - open) >= 0.25 * atr14.
+    5. Stop Loss: raw_stop = min(low, close - 1.0 * atr14) - 0.25 * atr14.
+       Enforce min_stop_pct (0.80%): stop_dist = max(close - raw_stop, close * min_stop_pct).
+       Bound: min_stop_pct <= stop_dist / close <= max_stop_pct (0.0250).
+    6. Fractional Sizing: shares = round(min(risk_per_trade / stop_dist, notional_cap / entry), 4).
+    7. Exit & R-Ladder:
+       - Target: 4.5R
+       - MFE >= 1.5R -> stop = entry + 0.20R (LADDER_1.5R)
+       - MFE >= 2.2R -> stop = entry + 1.20R (LADDER_2.2R)
+       - MFE >= 3.0R -> stop = entry + 2.00R (LADDER_3R)
+       - Max hold: 72 bars (6 hours) rolling time exit (TIME_6H).
+       - B1 rules: max 15 entries/day, 3 consec losses -> 15m cooldown, -$320 daily breaker.
+    """
+    import numpy as np
+    import pandas as pd
+
+    empty_radar = {
+        "session_vwap": None,
+        "session_tag": btc_session_tag(),
+        "macro_gate": {"ready": False, "bullish": False, "label": "数据不足", "detail": "等待K线积累"},
+        "vol_filter": {"ready": False, "passed": False, "label": "数据不足", "detail": "等待K线积累"},
+        "smc_sweep": {"triggered": False, "label": "无刺穿", "detail": "—"},
+        "ema_pull": {"triggered": False, "label": "无回踩", "detail": "—"},
+        "vwap_status": "flat",
+        "smc_5m": {"state": "none", "label": "数据不足"},
+        "trend_5m": "flat",
+    }
+    empty_execution = {
+        "has_signal": False,
+        "signal_id": None,
+        "symbol": "BTCUSD",
+        "strategy": "A+F_Wide(0.8%)+Macro",
+        "rationale": "BTC/USD 8h-VWAP + Macro EMA Gate",
+        "entry": None,
+        "entry_price": None,
+        "stop": None,
+        "stop_price": None,
+        "target": None,
+        "target_2r": None,
+        "target_r": 4.5,
+        "target_4_5r": None,
+        "risk_per_share": None,
+        "shares": None,
+        "unit": "BTC",
+        "actual_risk": None,
+        "notional": None,
+        "risk_budget": risk_per_trade,
+        "notional_cap": notional_cap,
+        "breakeven_trigger": None,
+        "breakeven_stop": None,
+        "breakeven_state": "none",
+        "ladder_1_5r_trigger": None,
+        "ladder_1_5r_stop": None,
+        "ladder_2_2r_trigger": None,
+        "ladder_2_2r_stop": None,
+        "ladder_3_0r_trigger": None,
+        "ladder_3_0r_stop": None,
+        "position_r": None,
+    }
+
+    if not bars_5m:
+        return {
+            "symbol": "BTCUSD",
+            "trades": [],
+            "markers": [],
+            "summary": {"trades": 0, "wins": 0, "stops": 0, "net": 0.0},
+            "latest_trade": None,
+            "radar": empty_radar,
+            "execution": empty_execution,
+            "last_price": None,
+            "session_vwap": None,
+            "session_tag": btc_session_tag(),
+            "macro_status": "日线趋势过滤 · 观望",
+            "open_position": None,
+            "bars_count": 0,
+        }
+
+    if isinstance(bars_5m, pd.DataFrame):
+        df = bars_5m.copy()
+    else:
+        records = []
+        for b in bars_5m:
+            if isinstance(b, dict):
+                records.append(b)
+            elif hasattr(b, "__dict__"):
+                records.append(b.__dict__)
+            else:
+                records.append({
+                    "open": getattr(b, "open", 0.0),
+                    "high": getattr(b, "high", 0.0),
+                    "low": getattr(b, "low", 0.0),
+                    "close": getattr(b, "close", 0.0),
+                    "volume": getattr(b, "volume", 0.0),
+                    "start_utc": getattr(b, "start_utc", getattr(b, "timestamp", None)),
+                })
+        df = pd.DataFrame(records)
+
+    col_map = {"o": "open", "h": "high", "l": "low", "c": "close", "v": "volume", "t": "timestamp"}
+    for short, full in col_map.items():
+        if short in df.columns and full not in df.columns:
+            df[full] = df[short]
+
+    if "start_utc" not in df.columns:
+        if "timestamp" in df.columns:
+            df["start_utc"] = pd.to_datetime(df["timestamp"], utc=True)
+        else:
+            df["start_utc"] = pd.date_range("2026-01-01", periods=len(df), freq="5min", tz="UTC")
+    else:
+        df["start_utc"] = pd.to_datetime(df["start_utc"], utc=True)
+
+    df = df.sort_values("start_utc").reset_index(drop=True)
+    n = len(df)
+    if n < 20:
+        last_close = float(df["close"].iloc[-1]) if n > 0 else None
+        return {
+            "symbol": "BTCUSD",
+            "trades": [],
+            "markers": [],
+            "summary": {"trades": 0, "wins": 0, "stops": 0, "net": 0.0},
+            "latest_trade": None,
+            "radar": empty_radar,
+            "execution": empty_execution,
+            "last_price": last_close,
+            "session_vwap": last_close,
+            "session_tag": btc_session_tag(df["start_utc"].iloc[-1] if n > 0 else None),
+            "macro_status": "日线趋势过滤 · 观望",
+            "open_position": None,
+            "bars_count": n,
+        }
+
+    close = df["close"].astype(float)
+    high = df["high"].astype(float)
+    low = df["low"].astype(float)
+    open_ = df["open"].astype(float)
+    vol = df["volume"].astype(float)
+
+    df["ema9"] = close.ewm(span=9, adjust=False).mean()
+    df["ema21"] = close.ewm(span=21, adjust=False).mean()
+    df["ema50"] = close.ewm(span=50, adjust=False).mean()
+
+    prev_close = close.shift(1)
+    tr = pd.concat([
+        (high - low).abs(),
+        (high - prev_close).abs(),
+        (low - prev_close).abs(),
+    ], axis=1).max(axis=1)
+    df["atr14"] = tr.ewm(alpha=1.0 / 14.0, adjust=False).mean()
+
+    df["utc_day"] = df["start_utc"].dt.date
+    df["session_bucket"] = df["start_utc"].dt.floor("8h")
+    tp = (high + low + close) / 3.0
+    tp_vol = tp * vol
+    cum_tp_vol = tp_vol.groupby(df["session_bucket"]).cumsum()
+    cum_vol = vol.groupby(df["session_bucket"]).cumsum()
+    rolling_mean = tp.groupby(df["session_bucket"]).expanding().mean().reset_index(level=0, drop=True)
+    df["session_vwap"] = np.where(cum_vol > 0, cum_tp_vol / np.maximum(cum_vol, 1e-12), rolling_mean)
+
+    df["ema_d20"] = close.ewm(span=288 * 20, adjust=False).mean()
+    df["ema_d50"] = close.ewm(span=288 * 50, adjust=False).mean()
+
+    df["prior20_low"] = low.shift(1).rolling(20, min_periods=20).min()
+    df["prior6_high"] = high.shift(1).rolling(6, min_periods=6).max()
+    df["prior6_low"] = low.shift(1).rolling(6, min_periods=6).min()
+    df["range6"] = df["prior6_high"] - df["prior6_low"]
+
+    starts = df["start_utc"].tolist()
+    days = df["utc_day"].tolist()
+    opens = df["open"].to_numpy(dtype=float)
+    highs = df["high"].to_numpy(dtype=float)
+    lows = df["low"].to_numpy(dtype=float)
+    closes = df["close"].to_numpy(dtype=float)
+    ema9 = df["ema9"].to_numpy(dtype=float)
+    ema21 = df["ema21"].to_numpy(dtype=float)
+    ema50 = df["ema50"].to_numpy(dtype=float)
+    ema_d20 = df["ema_d20"].to_numpy(dtype=float)
+    ema_d50 = df["ema_d50"].to_numpy(dtype=float)
+    atr14 = df["atr14"].to_numpy(dtype=float)
+    vwap = df["session_vwap"].to_numpy(dtype=float)
+    p20_low = df["prior20_low"].to_numpy(dtype=float)
+    range6 = df["range6"].to_numpy(dtype=float)
+
+    fee_rate = fee_bps / 10_000.0
+    trades: List[Dict[str, Any]] = []
+    markers: List[Dict[str, Any]] = []
+    pos: Optional[Dict[str, Any]] = None
+    pending: Optional[Dict[str, Any]] = None
+    cur_day: Optional[date] = None
+    daily_pnl = 0.0
+    daily_entries = 0
+    consec_losses = 0
+    cooldown_until_idx = -1
+    trade_counter = 0
+
+    start_idx = min(20, n)
+    for i in range(start_idx, n):
+        day = days[i]
+        if day != cur_day:
+            cur_day = day
+            daily_pnl = 0.0
+            daily_entries = 0
+            consec_losses = 0
+
+        # 1. Fill pending signal at Open of bar i
+        if pos is None and pending is not None:
+            sig = pending
+            pending = None
+            raw_entry = opens[i]
+            fill_entry = raw_entry * (1.0 + fee_rate)
+            stop_dist = sig["stop_dist"]
+            if stop_dist > 0:
+                init_stop = fill_entry - stop_dist
+                target_price = fill_entry + 4.5 * stop_dist
+                shares = round(min(risk_per_trade / stop_dist, notional_cap / fill_entry), 4)
+                if shares >= 0.0001:
+                    trade_counter += 1
+                    trade_id = f"BTC-{trade_counter:04d}"
+                    pos = {
+                        "trade_id": trade_id,
+                        "strategy": sig["strategy"],
+                        "entry_idx": i,
+                        "entry_time": starts[i],
+                        "entry_day": day,
+                        "entry_price": fill_entry,
+                        "stop_price": init_stop,
+                        "stop_kind": "INITIAL",
+                        "stop_dist": stop_dist,
+                        "target_price": target_price,
+                        "shares": shares,
+                        "max_mfe_r": 0.0,
+                    }
+                    daily_entries += 1
+                    markers.append({
+                        "type": "ENTRY",
+                        "time_utc": starts[i].isoformat(),
+                        "t": int(starts[i].timestamp() * 1000),
+                        "price": round(fill_entry, 2),
+                        "symbol": "BTCUSD",
+                        "strategy": sig["strategy"],
+                        "trade_id": trade_id,
+                        "r_multiple": 0.0,
+                    })
+
+        # 2. Manage open position on bar i
+        if pos is not None:
+            entry_p = pos["entry_price"]
+            stop_p = pos["stop_price"]
+            targ_p = pos["target_price"]
+            r_dist = pos["stop_dist"]
+            bars_held = i - pos["entry_idx"] + 1
+
+            stop_hit = lows[i] <= stop_p
+            targ_hit = highs[i] >= targ_p
+            exit_raw = None
+            exit_reason = None
+            if stop_hit:
+                exit_raw = stop_p
+                exit_reason = "LADDER_STOP" if pos["stop_kind"].startswith("LADDER") else "STOP"
+            elif targ_hit:
+                exit_raw = targ_p
+                exit_reason = "TARGET"
+            elif bars_held >= 72:
+                exit_raw = closes[i]
+                exit_reason = "TIME_6H"
+
+            if exit_raw is not None:
+                fill_exit = exit_raw * (1.0 - fee_rate)
+                pnl = (fill_exit - entry_p) * pos["shares"]
+                r_mult = (fill_exit - entry_p) / r_dist
+                exit_marker = {
+                    "type": exit_reason,
+                    "time_utc": starts[i].isoformat(),
+                    "t": int(starts[i].timestamp() * 1000),
+                    "price": round(fill_exit, 2),
+                    "symbol": "BTCUSD",
+                    "strategy": pos["strategy"],
+                    "trade_id": pos["trade_id"],
+                    "r_multiple": round(r_mult, 4),
+                }
+                markers.append(exit_marker)
+                trades.append({
+                    "trade_id": pos["trade_id"],
+                    "entry_time": pos["entry_time"].isoformat(),
+                    "exit_time": starts[i].isoformat(),
+                    "day": str(pos["entry_day"]),
+                    "symbol": "BTCUSD",
+                    "direction": "LONG",
+                    "strategy": pos["strategy"],
+                    "entry_price": round(entry_p, 2),
+                    "exit_price": round(fill_exit, 2),
+                    "shares": pos["shares"],
+                    "pnl": round(pnl, 2),
+                    "r_multiple": round(r_mult, 4),
+                    "exit_reason": exit_reason,
+                    "exit_stop_kind": pos["stop_kind"],
+                    "max_mfe_r": round(pos["max_mfe_r"], 3),
+                    "markers": [m for m in markers if m.get("trade_id") == pos["trade_id"]],
+                })
+                daily_pnl += pnl
+                if pnl < 0:
+                    consec_losses += 1
+                    if consec_losses >= 3:
+                        cooldown_until_idx = i + 3
+                else:
+                    consec_losses = 0
+                pos = None
+                continue
+            else:
+                bar_mfe = (highs[i] - entry_p) / r_dist
+                if bar_mfe > pos["max_mfe_r"]:
+                    pos["max_mfe_r"] = bar_mfe
+                if pos["max_mfe_r"] >= 3.0:
+                    cand_r, cand_kind = 2.00, "LADDER_3R"
+                elif pos["max_mfe_r"] >= 2.2:
+                    cand_r, cand_kind = 1.20, "LADDER_2.2R"
+                elif pos["max_mfe_r"] >= 1.5:
+                    cand_r, cand_kind = 0.20, "LADDER_1.5R"
+                else:
+                    cand_r, cand_kind = -1.0, "INITIAL"
+
+                if cand_r > -1.0:
+                    cand_stop = entry_p + cand_r * r_dist
+                    if cand_stop > pos["stop_price"]:
+                        pos["stop_price"] = cand_stop
+                        pos["stop_kind"] = cand_kind
+                continue
+
+        # 3. Evaluate new signal at bar i close
+        if i < cooldown_until_idx or daily_entries >= 15 or daily_pnl <= -320.0:
+            continue
+        c, o, h, l, atr = closes[i], opens[i], highs[i], lows[i], atr14[i]
+        if not (np.isfinite(atr) and atr > 0 and c > 0):
+            continue
+
+        macro_ok = (c > ema_d20[i]) and (ema_d20[i] >= ema_d50[i] * 0.99)
+        if not macro_ok:
+            continue
+
+        vol_ok = (atr / c >= 0.0016) and np.isfinite(range6[i]) and (range6[i] >= 1.35 * atr)
+        if not vol_ok:
+            continue
+
+        bull_trend = (c > vwap[i]) and (ema9[i] > ema21[i]) and (ema21[i] >= ema50[i] * 0.999)
+        smc_long = (
+            np.isfinite(p20_low[i])
+            and l < p20_low[i]
+            and c > p20_low[i]
+            and c > ema21[i]
+            and c > vwap[i]
+            and c > o
+        )
+        pullback_long = (
+            bull_trend
+            and l <= ema9[i] * 1.0005
+            and l >= ema21[i] * 0.9985
+            and c > ema9[i]
+            and c > o
+            and (c - o) >= 0.25 * atr
+        )
+
+        if smc_long or pullback_long:
+            raw_stop = min(l, c - 1.0 * atr) - 0.25 * atr
+            stop_dist = max(c - raw_stop, c * min_stop_pct)
+            pct_stop = stop_dist / c
+            if min_stop_pct <= pct_stop <= max_stop_pct:
+                pending = {
+                    "strategy": "SMC_SWEEP_L" if smc_long else "EMA_PULL_L",
+                    "stop_dist": stop_dist,
+                    "signal_time": starts[i],
+                    "signal_price": c,
+                }
+
+    last_c = closes[-1]
+    last_o = opens[-1]
+    last_l = lows[-1]
+    last_h = highs[-1]
+    last_atr = atr14[-1]
+    last_vwap = vwap[-1]
+    last_d20 = ema_d20[-1]
+    last_d50 = ema_d50[-1]
+    last_p20_low = p20_low[-1]
+    last_range6 = range6[-1]
+    last_time = starts[-1]
+
+    session_tag = btc_session_tag(last_time)
+    macro_ok = bool((last_c > last_d20) and (last_d20 >= last_d50 * 0.99))
+    macro_status = "多头顺势" if macro_ok else "日线趋势过滤 · 观望"
+    macro_gate_dict = {
+        "ready": bool(np.isfinite(last_d20) and np.isfinite(last_d50)),
+        "bullish": macro_ok,
+        "ema_d20": round(float(last_d20), 2) if np.isfinite(last_d20) else None,
+        "ema_d50": round(float(last_d50), 2) if np.isfinite(last_d50) else None,
+        "state": "bull" if macro_ok else "filtered",
+        "label": macro_status,
+        "detail": f"Close {last_c:.1f} / EMA_D20 {last_d20:.1f} / EMA_D50 {last_d50:.1f}",
+    }
+
+    atr_pct = (last_atr / last_c) if last_c > 0 else 0.0
+    vol_ok = bool((atr_pct >= 0.0016) and (last_range6 >= 1.35 * last_atr))
+    vol_dict = {
+        "ready": bool(np.isfinite(last_atr) and last_atr > 0),
+        "passed": vol_ok,
+        "atr14": round(float(last_atr), 2) if np.isfinite(last_atr) else None,
+        "atr_pct": round(float(atr_pct * 100.0), 3),
+        "range6": round(float(last_range6), 2) if np.isfinite(last_range6) else None,
+        "min_range": round(float(1.35 * last_atr), 2) if np.isfinite(last_atr) else None,
+        "label": "波动活跃" if vol_ok else "波动压缩 · 过滤",
+        "detail": f"ATR14 {atr_pct*100.0:.3f}% (门槛 0.160%) · 30m振幅 {last_range6:.1f} (门槛 {1.35*last_atr:.1f})",
+    }
+
+    smc_triggered = bool(np.isfinite(last_p20_low) and last_l < last_p20_low and last_c > last_p20_low and last_c > ema21[-1] and last_c > last_vwap and last_c > last_o)
+    bull_trend_latest = bool((last_c > last_vwap) and (ema9[-1] > ema21[-1]) and (ema21[-1] >= ema50[-1] * 0.999))
+    ema_pull_triggered = bool(bull_trend_latest and last_l <= ema9[-1] * 1.0005 and last_l >= ema21[-1] * 0.9985 and last_c > ema9[-1] and last_c > last_o and (last_c - last_o) >= 0.25 * last_atr)
+
+    recent_bars = [{"low": l, "high": h, "close": c} for l, h, c in zip(lows[-25:], highs[-25:], closes[-25:])]
+    btc_radar = {
+        "session_vwap": round(float(last_vwap), 2),
+        "session_tag": session_tag,
+        "macro_gate": macro_gate_dict,
+        "vol_filter": vol_dict,
+        "smc_sweep": {"triggered": smc_triggered, "label": "看涨刺穿确认" if smc_triggered else "无刺穿", "detail": f"低点 {last_l:.1f} / 摆动低 {last_p20_low:.1f}"},
+        "ema_pull": {"triggered": ema_pull_triggered, "label": "EMA回踩确认" if ema_pull_triggered else "无回踩", "detail": f"EMA9 {ema9[-1]:.1f} / EMA21 {ema21[-1]:.1f}"},
+        "vwap_status": "above" if last_c >= last_vwap else "below",
+        "smc_5m": detect_liquidity_sweep(recent_bars),
+        "trend_5m": trend_label(closes[-25:].tolist()),
+    }
+
+    # Execution card preparation
+    if pos is not None:
+        has_signal = True
+        signal_id = pos["trade_id"]
+        strategy = pos["strategy"]
+        entry = pos["entry_price"]
+        stop = pos["stop_price"]
+        stop_dist = pos["stop_dist"]
+        target_2r = entry + 2.0 * stop_dist
+        target_4_5r = pos["target_price"]
+        shares = pos["shares"]
+        unrealized_r = (last_c - entry) / stop_dist
+        be_state = "active" if pos["stop_kind"].startswith("LADDER") else "holding"
+    elif pending is not None:
+        has_signal = True
+        signal_id = f"SIG-BTC-{int(last_time.timestamp())}"
+        strategy = pending["strategy"]
+        entry = last_c
+        stop_dist = pending["stop_dist"]
+        stop = entry - stop_dist
+        target_2r = entry + 2.0 * stop_dist
+        target_4_5r = entry + 4.5 * stop_dist
+        shares = round(min(risk_per_trade / stop_dist, notional_cap / entry), 4)
+        unrealized_r = 0.0
+        be_state = "none"
+    else:
+        has_signal = False
+        signal_id = None
+        strategy = "A+F_Wide(0.8%)+Macro"
+        entry = last_c
+        raw_stop = min(last_l, last_c - 1.0 * last_atr) - 0.25 * last_atr
+        stop_dist = max(last_c - raw_stop, last_c * min_stop_pct)
+        stop = entry - stop_dist
+        target_2r = entry + 2.0 * stop_dist
+        target_4_5r = entry + 4.5 * stop_dist
+        shares = round(min(risk_per_trade / stop_dist, notional_cap / entry), 4) if entry > 0 and stop_dist > 0 else 0.0
+        unrealized_r = None
+        be_state = "none"
+
+    ladder_1_5r_trigger = round(entry + 1.5 * stop_dist, 2)
+    ladder_1_5r_stop = round(entry + 0.20 * stop_dist, 2)
+    ladder_2_2r_trigger = round(entry + 2.2 * stop_dist, 2)
+    ladder_2_2r_stop = round(entry + 1.20 * stop_dist, 2)
+    ladder_3_0r_trigger = round(entry + 3.0 * stop_dist, 2)
+    ladder_3_0r_stop = round(entry + 2.00 * stop_dist, 2)
+
+    btc_execution = {
+        "has_signal": has_signal,
+        "signal_id": signal_id,
+        "symbol": "BTCUSD",
+        "strategy": strategy,
+        "rationale": f"BTC/USD 8h-VWAP + Macro EMA Gate ({session_tag})",
+        "entry": round(entry, 2),
+        "entry_price": round(entry, 2),
+        "stop": round(stop, 2),
+        "stop_price": round(stop, 2),
+        "target": round(target_2r, 2),
+        "target_2r": round(target_2r, 2),
+        "target_r": 4.5,
+        "target_4_5r": round(target_4_5r, 2),
+        "risk_per_share": round(stop_dist, 2),
+        "shares": shares,
+        "unit": "BTC",
+        "actual_risk": round(shares * stop_dist, 2),
+        "notional": round(shares * entry, 2),
+        "risk_budget": risk_per_trade,
+        "notional_cap": notional_cap,
+        "breakeven_trigger": ladder_1_5r_trigger,
+        "breakeven_stop": ladder_1_5r_stop,
+        "breakeven_state": be_state,
+        "ladder_1_5r_trigger": ladder_1_5r_trigger,
+        "ladder_1_5r_stop": ladder_1_5r_stop,
+        "ladder_2_2r_trigger": ladder_2_2r_trigger,
+        "ladder_2_2r_stop": ladder_2_2r_stop,
+        "ladder_3_0r_trigger": ladder_3_0r_trigger,
+        "ladder_3_0r_stop": ladder_3_0r_stop,
+        "position_r": round(unrealized_r, 3) if unrealized_r is not None else None,
+    }
+
+    return {
+        "symbol": "BTCUSD",
+        "trades": trades,
+        "markers": markers,
+        "summary": {
+            "trades": len(trades),
+            "wins": sum(1 for t in trades if float(t.get("pnl", 0.0)) > 0),
+            "stops": sum(1 for t in trades if float(t.get("pnl", 0.0)) < 0),
+            "net": round(sum(float(t.get("pnl", 0.0)) for t in trades), 2),
+        },
+        "latest_trade": trades[-1] if trades else None,
+        "radar": btc_radar,
+        "execution": btc_execution,
+        "last_price": round(last_c, 2),
+        "session_vwap": round(float(last_vwap), 2),
+        "session_tag": session_tag,
+        "macro_status": macro_status,
+        "open_position": pos,
+        "bars_count": n,
+    }
+
+
 @dataclass
 class SymbolBook:
     symbol: str
@@ -610,6 +1310,25 @@ class SessionTracker:
         with self._lock:
             book = self.books.get(bar.symbol)
             if book is None:
+                return
+            if is_crypto_symbol(bar.symbol):
+                record = {
+                    "start_utc": bar.start_utc,
+                    "end_utc": bar.end_utc,
+                    "et_day": bar.start_utc.astimezone(ET).date(),
+                    "open": float(bar.open),
+                    "high": float(bar.high),
+                    "low": float(bar.low),
+                    "close": float(bar.close),
+                    "volume": float(bar.volume),
+                    "vwap": float(bar.vwap or bar.close),
+                }
+                self._insert(book, record)
+                book.last_bar_utc = bar.start_utc
+                book.last_price = float(bar.close)
+                self._update_day_extremes(book, record)
+                if book.session_open is None:
+                    book.session_open = float(record["open"])
                 return
             et_day = bar.start_utc.astimezone(ET).date()
             if et_day > self.current_day:
@@ -748,6 +1467,9 @@ class SessionTracker:
     def candles(self, symbol: str, timeframe: str) -> List[Dict[str, Any]]:
         """Return display candles: 1m / 5m / 15m from today's bars, 1d from REST history."""
         with self._lock:
+            sym = normalize_symbol(symbol)
+            if is_crypto_symbol(sym):
+                return fetch_btcusd_bars(timeframe, limit=200 if timeframe.lower() != "1d" else 160)
             if timeframe == "1d":
                 daily = list(self.daily_bars.get(symbol, []))
                 if not daily:
@@ -821,6 +1543,30 @@ class SessionTracker:
             day = self.current_day
             data: Dict[str, Any] = {}
             for symbol, book in self.books.items():
+                if is_crypto_symbol(symbol):
+                    bars = book.bars_1m
+                    closes = [bar["close"] for bar in bars]
+                    data[symbol] = {
+                        "symbol": symbol,
+                        "last_price": round(book.last_price if book.last_price is not None else (bars[-1]["close"] if bars else 0.0), 4) if (book.last_price is not None or bars) else None,
+                        "last_bar_utc": book.last_bar_utc.isoformat() if book.last_bar_utc else None,
+                        "session_open": round(book.session_open, 4) if book.session_open else None,
+                        "session_high": round(book.session_high, 4) if book.session_high else None,
+                        "session_low": round(book.session_low, 4) if book.session_low else None,
+                        "volume": int(round(book.day_volume)),
+                        "bars_1m": len(bars),
+                        "bars_5m": 0,
+                        "orb": {"high": None, "low": None, "complete": False, "range": None, "range_pct": None, "breakout": None},
+                        "orb_status": "24/7_SESSION",
+                        "smc_1m": detect_liquidity_sweep(bars) if bars else {},
+                        "smc_5m": {},
+                        "trend_1m": trend_label(closes) if closes else "FLAT",
+                        "trend_5m": "FLAT",
+                        "vwap": round(sum(bar["vwap"] * bar["volume"] for bar in bars) / sum(bar["volume"] for bar in bars), 4)
+                        if bars and sum(bar["volume"] for bar in bars) > 0
+                        else None,
+                    }
+                    continue
                 bars = [bar for bar in book.bars_1m if bar["et_day"] == day]
                 closes = [bar["close"] for bar in bars]
                 bars_5m = [bar for bar in aggregate_5m(bars, day) if bar.get("complete")]
@@ -930,6 +1676,11 @@ def build_execution_card(snapshot_dict: Dict[str, Any], config: Any = None) -> D
     else:
         be_state = "none"
 
+    sym = candidate.get("symbol")
+    is_crypto = bool(sym and normalize_symbol(sym) in CRYPTO_SYMBOLS)
+    if is_crypto and shares is not None:
+        shares = round(shares, 4)
+
     return {
         "has_signal": bool(entry is not None and shares),
         "signal_id": snapshot_dict.get("latest_signal_id"),
@@ -937,12 +1688,16 @@ def build_execution_card(snapshot_dict: Dict[str, Any], config: Any = None) -> D
         "strategy": candidate.get("strategy"),
         "rationale": candidate.get("rationale"),
         "entry": entry,
+        "entry_price": entry,
         "stop": stop,
+        "stop_price": stop,
         "target": target,
+        "target_2r": target,
         "target_r": target_r,
         "target_4_5r": target_4_5r,
         "risk_per_share": risk_per_share,
         "shares": shares,
+        "unit": "BTC" if is_crypto else "股",
         "actual_risk": actual_risk,
         "notional": notional,
         "risk_budget": float(getattr(getattr(config, "risk", None), "max_risk_per_trade", 60.0) or 60.0),
@@ -1023,14 +1778,36 @@ def build_ui_state(
     events: Optional[Sequence[Dict[str, Any]]] = None,
     journal_state: Optional[Dict[str, Any]] = None,
     provider_name: str = "alpaca",
+    btc_state: Optional[Dict[str, Any]] = None,
 ) -> Dict[str, Any]:
     now = datetime.now(timezone.utc)
     prev_closes = prev_closes or {}
     symbols_state: Dict[str, Any] = {}
-    for symbol in SYMBOLS:
+    for symbol in ALL_SYMBOLS:
         display = dict((tracker_state.get("symbols") or {}).get(symbol) or {})
         last = _safe_float(display.get("last_price"))
         prev = _safe_float(prev_closes.get(symbol))
+        if symbol in CRYPTO_SYMBOLS:
+            if btc_state:
+                if last is None:
+                    last = _safe_float(btc_state.get("last_price"))
+                display["symbol"] = symbol
+                display["last_price"] = last
+                display["last_bar_utc"] = btc_state.get("last_bar_utc") or display.get("last_bar_utc")
+                display["session_open"] = _safe_float(btc_state.get("session_open")) or display.get("session_open")
+                display["session_high"] = _safe_float(btc_state.get("session_high")) or display.get("session_high")
+                display["session_low"] = _safe_float(btc_state.get("session_low")) or display.get("session_low")
+                display["volume"] = btc_state.get("volume") or display.get("volume", 0)
+                display["bars_1m"] = display.get("bars_1m", 0)
+                display["bars_5m"] = btc_state.get("bars_count", display.get("bars_5m", 0))
+                display["vwap"] = btc_state.get("session_vwap")
+                display["session_vwap"] = btc_state.get("session_vwap")
+                display["session_tag"] = btc_state.get("session_tag") or btc_session_tag()
+                display["macro_status"] = btc_state.get("macro_status", "多头顺势")
+            else:
+                display.setdefault("symbol", symbol)
+                display.setdefault("session_tag", btc_session_tag())
+                display.setdefault("macro_status", "日线趋势过滤 · 观望")
         change_pct = round((last / prev - 1.0) * 100.0, 3) if last and prev else None
         display["change_pct"] = change_pct
         display["change_abs"] = round(last - prev, 4) if last and prev else None
@@ -1056,6 +1833,56 @@ def build_ui_state(
             cooldown_left = 0
 
     execution = build_execution_card(snapshot_dict, config)
+    btc_exec = (btc_state.get("execution") if btc_state else None) or {
+        "has_signal": False,
+        "signal_id": None,
+        "symbol": "BTCUSD",
+        "strategy": "A+F_Wide(0.8%)+Macro",
+        "rationale": "BTC/USD 8h-VWAP + Macro EMA Gate",
+        "entry": symbols_state.get("BTCUSD", {}).get("last_price"),
+        "entry_price": symbols_state.get("BTCUSD", {}).get("last_price"),
+        "stop": None,
+        "stop_price": None,
+        "target": None,
+        "target_2r": None,
+        "target_r": 4.5,
+        "target_4_5r": None,
+        "shares": 0.0,
+        "unit": "BTC",
+        "risk_budget": 60.0,
+        "notional_cap": 10000.0,
+        "breakeven_state": "none",
+    }
+    execution_by_symbol = {
+        "SOXL": execution if execution.get("symbol") == "SOXL" else dict(execution, symbol="SOXL"),
+        "SOXS": execution if execution.get("symbol") == "SOXS" else dict(execution, symbol="SOXS"),
+        "BTCUSD": btc_exec,
+    }
+
+    radar_state: Dict[str, Any] = {}
+    for symbol in ALL_SYMBOLS:
+        if symbol in CRYPTO_SYMBOLS:
+            if btc_state and "radar" in btc_state:
+                radar_state[symbol] = btc_state["radar"]
+            else:
+                radar_state[symbol] = {
+                    "session_vwap": symbols_state[symbol].get("session_vwap"),
+                    "session_tag": symbols_state[symbol].get("session_tag") or btc_session_tag(),
+                    "macro_gate": {"ready": False, "bullish": False, "label": symbols_state[symbol].get("macro_status", "观望")},
+                    "vol_filter": {"ready": False, "passed": False, "label": "观望"},
+                    "smc_sweep": {"triggered": False, "label": "无刺穿"},
+                    "ema_pull": {"triggered": False, "label": "无回踩"},
+                    "smc_5m": {"state": "none", "label": "—"},
+                    "trend_5m": "flat",
+                }
+        else:
+            radar_state[symbol] = {
+                "orb": symbols_state[symbol].get("orb"),
+                "orb_status": symbols_state[symbol].get("orb_status"),
+                "smc_1m": symbols_state[symbol].get("smc_1m"),
+                "smc_5m": symbols_state[symbol].get("smc_5m"),
+            }
+
     return {
         "server": {
             "provider": provider_name,
@@ -1072,6 +1899,8 @@ def build_ui_state(
         },
         "countdown": forced_flat_countdown(now),
         "symbols": symbols_state,
+        "quotes": symbols_state,
+        "watchlist": list(symbols_state.values()),
         "risk": {
             "entries_today": int(snapshot_dict.get("entries_today") or 0),
             "max_entries": int(snapshot_dict.get("max_entries_per_day") or 15),
@@ -1092,18 +1921,12 @@ def build_ui_state(
             "cooldown_minutes": int(getattr(risk_cfg, "consecutive_stop_cooldown_minutes", 15) or 15),
             "config_name": "B1",
         },
-        "radar": {
-            symbol: {
-                "orb": symbols_state[symbol].get("orb"),
-                "orb_status": symbols_state[symbol].get("orb_status"),
-                "smc_1m": symbols_state[symbol].get("smc_1m"),
-                "smc_5m": symbols_state[symbol].get("smc_5m"),
-            }
-            for symbol in SYMBOLS
-        },
-        "execution": execution,
+        "radar": radar_state,
+        "execution": execution if execution.get("symbol") != "BTCUSD" else btc_exec,
+        "execution_by_symbol": execution_by_symbol,
         "journal": journal_state or {"open_positions": [], "closed_trades": [], "today_pnl": 0.0, "today_count": 0},
         "events": list(events or [])[-8:],
+        "btc": btc_state,
     }
 
 
@@ -1130,6 +1953,9 @@ class LiveTerminal:
         self._v04_last_count = -1
         self._v04_marker_keys: set[str] = set()
         self._ext_marker_keys: set[str] = set()
+        self._btc_state: Optional[Dict[str, Any]] = None
+        self._btc_last_poll: float = 0.0
+        self._btc_marker_keys: set[str] = set()
 
     def _wrap_callbacks(self) -> None:
         provider = self.runtime.alpaca
@@ -1192,6 +2018,10 @@ class LiveTerminal:
                     self._maybe_evaluate_v04()
                 except Exception as exc:  # noqa: BLE001
                     print(f"[terminal] V0.4 evaluation error: {exc}", flush=True)
+                try:
+                    self._maybe_evaluate_btc()
+                except Exception as exc:  # noqa: BLE001
+                    print(f"[terminal] BTC evaluation error: {exc}", flush=True)
                 state = build_ui_state(
                     snap_dict,
                     tracker_state,
@@ -1199,6 +2029,7 @@ class LiveTerminal:
                     prev_closes=self.prev_closes,
                     events=list(self.events),
                     journal_state=journal_state,
+                    btc_state=self._btc_state,
                 )
                 state["v04"] = self._v04_state
                 with self._lock:
@@ -1260,33 +2091,15 @@ class LiveTerminal:
         if current is None:
             return
         session_records = []
-        for symbol in SYMBOLS:
+        for symbol in US_EQUITY_SYMBOLS:
             session_records.extend(self.tracker.bars_for(symbol, "1m"))
         if len(session_records) < 10:
             return
-        five_count = max(0, (len(session_records) // (5 * len(SYMBOLS))))
+        five_count = max(0, (len(session_records) // (5 * len(US_EQUITY_SYMBOLS))))
         if five_count == self._v04_last_count:
             return
         session_bars: List[Bar] = []
-        for record in session_records:
-            session_bars.append(
-                Bar(
-                    symbol=record.get("symbol", ""),
-                    timeframe_minutes=1,
-                    start_utc=record["start_utc"],
-                    end_utc=record["end_utc"],
-                    open=float(record["open"]),
-                    high=float(record["high"]),
-                    low=float(record["low"]),
-                    close=float(record["close"]),
-                    volume=float(record["volume"]),
-                    vwap=float(record["vwap"]),
-                    trade_count=0,
-                )
-            )
-        # tracker records do not carry symbol; rebuild per symbol instead
-        session_bars = []
-        for symbol in SYMBOLS:
+        for symbol in US_EQUITY_SYMBOLS:
             for record in self.tracker.bars_for(symbol, "1m"):
                 session_bars.append(
                     Bar(
@@ -1358,8 +2171,87 @@ class LiveTerminal:
             )
         self._v04_last_count = five_count
 
+    def _maybe_evaluate_btc(self) -> None:
+        """Poll and evaluate BTC/USD 24/7 Spot Radar every 10-15 seconds."""
+        now = time.time()
+        if now - self._btc_last_poll < 12.0:
+            return
+        self._btc_last_poll = now
+        try:
+            bars_5m = fetch_btcusd_bars("5m", limit=300)
+            if not bars_5m:
+                return
+            state = evaluate_btcusd_session(bars_5m)
+            self._btc_state = state
+            book = self.tracker.books.get("BTCUSD")
+            if book and bars_5m:
+                last_bar = bars_5m[-1]
+                book.last_price = float(last_bar["c"])
+                book.last_bar_utc = last_bar["start_utc"]
+                if book.session_open is None:
+                    book.session_open = float(bars_5m[0]["o"])
+                book.session_high = max(float(b["h"]) for b in bars_5m)
+                book.session_low = min(float(b["l"]) for b in bars_5m)
+                book.day_volume = sum(float(b["v"]) for b in bars_5m)
+            kind_map = {
+                "ENTRY": "ENTRY_SIGNAL",
+                "STOP": "STOP_HIT_HINT",
+                "TARGET": "TAKE_PROFIT_HINT",
+                "LADDER_STOP": "TAKE_PROFIT_HINT",
+                "TIME_6H": "INFO",
+            }
+            for marker in state.get("markers", []):
+                key = f"{marker.get('trade_id')}|{marker.get('type')}|{marker.get('time_utc')}"
+                if key in self._btc_marker_keys:
+                    continue
+                self._btc_marker_keys.add(key)
+                mtype = str(marker.get("type", "")).upper()
+                kind = kind_map.get(mtype, "INFO")
+                self.events.append(
+                    {
+                        "ts_utc": marker.get("time_utc"),
+                        "ts_et": marker.get("time_utc"),
+                        "kind": kind,
+                        "level": "CRITICAL" if kind == "ENTRY_SIGNAL" else ("WARNING" if "HINT" in kind else "INFO"),
+                        "symbol": "BTCUSD",
+                        "signal_id": marker.get("trade_id"),
+                        "message": (
+                            f"BTC/USD {marker.get('type')} @ {marker.get('price')} · {marker.get('strategy', '')}"
+                        ),
+                    }
+                )
+        except Exception as exc:  # noqa: BLE001
+            print(f"[terminal] BTC evaluation error: {exc}", flush=True)
+
     def candles(self, symbol: str, timeframe: str) -> Dict[str, Any]:
-        return {"symbol": symbol, "timeframe": timeframe, "bars": self.tracker.candles(symbol, timeframe)}
+        norm = normalize_symbol(symbol)
+        if norm in CRYPTO_SYMBOLS:
+            bars = self.tracker.candles(norm, timeframe)
+            markers = (self._btc_state or {}).get("markers", [])
+            vwap = (self._btc_state or {}).get("session_vwap")
+            day_high = max((b["h"] for b in bars), default=None)
+            day_low = min((b["l"] for b in bars), default=None)
+            return {
+                "symbol": norm,
+                "timeframe": timeframe,
+                "bars": bars,
+                "markers": markers,
+                "session_vwap": vwap,
+                "day_high": day_high,
+                "day_low": day_low,
+            }
+        bars = self.tracker.candles(norm, timeframe)
+        markers = [m for m in (self._v04_state or {}).get("markers", []) if m.get("symbol") == norm]
+        day_high = max((b["h"] for b in bars), default=None)
+        day_low = min((b["l"] for b in bars), default=None)
+        return {
+            "symbol": norm,
+            "timeframe": timeframe,
+            "bars": bars,
+            "markers": markers,
+            "day_high": day_high,
+            "day_low": day_low,
+        }
 
     def command(self, line: str) -> str:
         with self._command_lock:
@@ -1567,12 +2459,13 @@ class TerminalHandler(BaseHTTPRequestHandler):
             self.end_headers()
             self.wfile.write(body)
             return
-        if route.startswith("/api/candles"):
+        if route.startswith("/api/candles") or route.startswith("/api/bars"):
             from urllib.parse import parse_qs, urlparse
 
             query = parse_qs(urlparse(self.path).query)
-            symbol = (query.get("symbol") or ["SOXL"])[0].upper()
-            timeframe = (query.get("tf") or ["1m"])[0]
+            raw_sym = (query.get("symbol") or ["SOXL"])[0]
+            symbol = normalize_symbol(raw_sym)
+            timeframe = (query.get("tf") or query.get("timeframe") or ["1m"])[0]
             payload = self.server.candles_provider(symbol, timeframe)  # type: ignore[attr-defined]
             body = json.dumps(payload, ensure_ascii=False, default=str).encode("utf-8")
             self.send_response(200)
@@ -1683,12 +2576,26 @@ def _demo_tracker() -> SessionTracker:
 
 
 def demo_candles(symbol: str, timeframe: str) -> Dict[str, Any]:
+    norm = normalize_symbol(symbol)
+    if norm in CRYPTO_SYMBOLS:
+        bars = load_btcusd_parquet(timeframe, limit=200)
+        btc_eval = evaluate_btcusd_session(load_btcusd_parquet("5m", limit=300))
+        return {
+            "symbol": norm,
+            "timeframe": timeframe,
+            "bars": bars,
+            "markers": btc_eval.get("markers", []),
+            "session_vwap": btc_eval.get("session_vwap"),
+            "session_tag": btc_eval.get("session_tag"),
+            "day_high": max((b["h"] for b in bars), default=None),
+            "day_low": min((b["l"] for b in bars), default=None),
+        }
     tracker = _demo_tracker()
     if timeframe == "1d":
         today = et_now().date()
-        bars = tracker.candles(symbol, "1m")
+        bars = tracker.candles(norm, "1m")
         if not bars:
-            return {"symbol": symbol, "timeframe": timeframe, "bars": []}
+            return {"symbol": norm, "timeframe": timeframe, "bars": []}
         day_bars = [{
             "t": bars[0]["t"] - 86400000,
             "o": round(bars[0]["o"] * 0.995, 4),
@@ -1697,8 +2604,8 @@ def demo_candles(symbol: str, timeframe: str) -> Dict[str, Any]:
             "c": round(bars[0]["o"] * 0.999, 4),
             "v": 900000,
         }]
-        return {"symbol": symbol, "timeframe": timeframe, "bars": day_bars}
-    return {"symbol": symbol, "timeframe": timeframe, "bars": tracker.candles(symbol, timeframe)}
+        return {"symbol": norm, "timeframe": timeframe, "bars": day_bars}
+    return {"symbol": norm, "timeframe": timeframe, "bars": tracker.candles(norm, timeframe)}
 
 
 def demo_state() -> Dict[str, Any]:
@@ -1796,14 +2703,17 @@ def demo_state() -> Dict[str, Any]:
         "today_pnl": 4.2,
         "today_count": 1,
     }
+    btc_bars = load_btcusd_parquet("5m", limit=300)
+    btc_state = evaluate_btcusd_session(btc_bars) if btc_bars else None
     return build_ui_state(
         snapshot,
         tracker_state,
         b1_config(),
-        prev_closes={"SOXL": 43.6, "SOXS": 74.9},
+        prev_closes={"SOXL": 43.6, "SOXS": 74.9, "BTCUSD": 74500.0},
         provider_name="demo",
         journal_state=journal_state,
         events=[{"kind": "ENTRY_SIGNAL", "level": "CRITICAL", "message": "SOXL ORB_5M 入场信号", "ts_utc": now.isoformat()}],
+        btc_state=btc_state,
     )
 
 

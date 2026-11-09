@@ -32,7 +32,10 @@ REPO_ROOT = PACKAGE_ROOT.parent
 DOCS_DIR = REPO_ROOT / "docs"
 
 
-def _yfinance_fallback_bars(symbols: tuple[str, ...] = ts.SYMBOLS) -> tuple[Dict[str, float], Dict[str, List[Any]], Dict[str, List[Any]], List[Bar]]:
+ALL_SYMBOLS: tuple[str, ...] = ("SOXL", "SOXS", "BTCUSD")
+
+
+def _yfinance_fallback_bars(symbols: tuple[str, ...] = ALL_SYMBOLS) -> tuple[Dict[str, float], Dict[str, List[Any]], Dict[str, List[Any]], List[Bar]]:
     """Fetch recent 1m and 1d bars via yfinance when Alpaca/local parquet are absent."""
     prev_closes: Dict[str, float] = {}
     today_bars: Dict[str, List[Any]] = {sym: [] for sym in symbols}
@@ -43,7 +46,9 @@ def _yfinance_fallback_bars(symbols: tuple[str, ...] = ts.SYMBOLS) -> tuple[Dict
         import yfinance as yf
 
         for symbol in symbols:
-            ticker = yf.Ticker(symbol)
+            is_crypto = ts.is_crypto_symbol(symbol)
+            ticker_name = "BTC-USD" if is_crypto and symbol in ("BTCUSD", "BTC/USD") else symbol
+            ticker = yf.Ticker(ticker_name)
             try:
                 hist_1d = ticker.history(period="6mo", interval="1d", auto_adjust=False)
                 if hist_1d is not None and not hist_1d.empty:
@@ -78,9 +83,10 @@ def _yfinance_fallback_bars(symbols: tuple[str, ...] = ts.SYMBOLS) -> tuple[Dict
                     records_1m = []
                     for ts_val, row in zip(idx, hist_1m.itertuples(index=False)):
                         dt_utc = ts_val.to_pydatetime()
-                        et_dt = dt_utc.astimezone(ts.ET)
-                        if not (dt_time(9, 30) <= et_dt.time() < dt_time(16, 0)):
-                            continue
+                        if not is_crypto:
+                            et_dt = dt_utc.astimezone(ts.ET)
+                            if not (dt_time(9, 30) <= et_dt.time() < dt_time(16, 0)):
+                                continue
                         c = float(getattr(row, "Close", 0.0) or 0.0)
                         if c <= 0:
                             continue
@@ -123,6 +129,133 @@ def _yfinance_fallback_bars(symbols: tuple[str, ...] = ts.SYMBOLS) -> tuple[Dict
         pass
     warmup_bars.sort(key=lambda b: (b.start_utc, b.symbol))
     return prev_closes, today_bars, daily_bars, warmup_bars
+
+
+def fetch_btcusd_bundle_candles() -> Dict[str, List[Dict[str, Any]]]:
+    """Fetch or load BTC/USD candles for 1m, 5m, 15m, 1d across Alpaca / local parquet / yfinance."""
+    timeframe_limits = {
+        "1m": 390,
+        "5m": 300,
+        "15m": 200,
+        "1d": 160,
+    }
+    result: Dict[str, List[Dict[str, Any]]] = {"1m": [], "5m": [], "15m": [], "1d": []}
+
+    # 1. Primary: ts.fetch_btcusd_bars (uses Alpaca crypto REST, falls back to local parquet)
+    for tf, limit in timeframe_limits.items():
+        try:
+            bars = ts.fetch_btcusd_bars(tf, limit=limit)
+            if bars:
+                formatted: List[Dict[str, Any]] = []
+                for b in bars:
+                    formatted.append({
+                        "t": int(b["t"]),
+                        "o": round(float(b["o"]), 2),
+                        "h": round(float(b["h"]), 2),
+                        "l": round(float(b["l"]), 2),
+                        "c": round(float(b["c"]), 2),
+                        "v": round(float(b.get("v", 0.0)), 4),
+                    })
+                result[tf] = formatted
+        except Exception:  # noqa: BLE001
+            pass
+
+    # 2. Secondary fallback: yfinance for any missing timeframe (24/7 crypto)
+    missing = [tf for tf in ("1m", "5m", "15m", "1d") if not result[tf]]
+    if missing:
+        try:
+            import yfinance as yf
+            ticker = yf.Ticker("BTC-USD")
+            yf_ranges = {
+                "1m": ("5d", "1m"),
+                "5m": ("14d", "5m"),
+                "15m": ("30d", "15m"),
+                "1d": ("6mo", "1d"),
+            }
+            for tf in missing:
+                period, interval = yf_ranges[tf]
+                try:
+                    hist = ticker.history(period=period, interval=interval, auto_adjust=False)
+                    if hist is not None and not hist.empty:
+                        limit = timeframe_limits[tf]
+                        tail = hist.tail(limit)
+                        bars = []
+                        for ts_idx, row in tail.iterrows():
+                            t_ms = int(ts_idx.timestamp() * 1000)
+                            c = float(row.get("Close", 0.0) or 0.0)
+                            if c <= 0:
+                                continue
+                            bars.append({
+                                "t": t_ms,
+                                "o": round(float(row.get("Open", c) or c), 2),
+                                "h": round(float(row.get("High", c) or c), 2),
+                                "l": round(float(row.get("Low", c) or c), 2),
+                                "c": round(c, 2),
+                                "v": round(float(row.get("Volume", 0.0) or 0.0), 4),
+                            })
+                        if bars:
+                            result[tf] = bars
+                except Exception:  # noqa: BLE001
+                    pass
+        except Exception:  # noqa: BLE001
+            pass
+
+    # 3. Tertiary fallback: local parquet aggregation / synthesis from 5m if 1m/15m/1d missing
+    if not result["1m"] and result["5m"]:
+        synth_1m: List[Dict[str, Any]] = []
+        for b in result["5m"][-78:]:
+            base_t = b["t"]
+            o, h, l, c, v = b["o"], b["h"], b["l"], b["c"], b["v"] / 5.0
+            prices = [o, (o * 2 + h) / 3, (h + l) / 2, (l + c * 2) / 3, c]
+            for step in range(5):
+                p = prices[step]
+                synth_1m.append({
+                    "t": base_t + step * 60000,
+                    "o": round(p, 2),
+                    "h": round(max(p, h if step == 1 else p), 2),
+                    "l": round(min(p, l if step == 2 else p), 2),
+                    "c": round(prices[step], 2),
+                    "v": round(v, 4),
+                })
+        result["1m"] = synth_1m
+
+    if not result["15m"] and result["5m"]:
+        bars_5m = result["5m"]
+        agg_15m: List[Dict[str, Any]] = []
+        for i in range(0, len(bars_5m), 3):
+            chunk = bars_5m[i:i + 3]
+            if not chunk:
+                continue
+            agg_15m.append({
+                "t": chunk[0]["t"],
+                "o": chunk[0]["o"],
+                "h": max(x["h"] for x in chunk),
+                "l": min(x["l"] for x in chunk),
+                "c": chunk[-1]["c"],
+                "v": round(sum(x["v"] for x in chunk), 4),
+            })
+        result["15m"] = agg_15m
+
+    if not result["1d"] and result["5m"]:
+        bars_5m = result["5m"]
+        by_day: Dict[int, List[Dict[str, Any]]] = {}
+        for b in bars_5m:
+            day_t = (b["t"] // 86400000) * 86400000
+            by_day.setdefault(day_t, []).append(b)
+        agg_1d: List[Dict[str, Any]] = []
+        for day_t in sorted(by_day):
+            chunk = by_day[day_t]
+            agg_1d.append({
+                "t": day_t,
+                "o": chunk[0]["o"],
+                "h": max(x["h"] for x in chunk),
+                "l": min(x["l"] for x in chunk),
+                "c": chunk[-1]["c"],
+                "v": round(sum(x["v"] for x in chunk), 4),
+            })
+        result["1d"] = agg_1d
+
+    return result
 
 
 def build_static_bundle() -> Dict[str, Any]:
@@ -296,6 +429,24 @@ def build_static_bundle() -> Dict[str, Any]:
         "position": None,
     }
 
+    btc_candles = fetch_btcusd_bundle_candles()
+    if not prev_closes.get("BTCUSD"):
+        if btc_candles.get("1d") and len(btc_candles["1d"]) >= 2:
+            prev_closes["BTCUSD"] = float(btc_candles["1d"][-2]["c"])
+        elif btc_candles.get("1d") and len(btc_candles["1d"]) == 1:
+            prev_closes["BTCUSD"] = float(btc_candles["1d"][-1]["c"])
+        elif btc_candles.get("5m"):
+            prev_closes["BTCUSD"] = float(btc_candles["5m"][0]["o"])
+
+    btc_bars_5m = btc_candles.get("5m") or []
+    btc_eval = ts.evaluate_btcusd_session(btc_bars_5m) if btc_bars_5m else None
+    if btc_eval and btc_bars_5m:
+        btc_eval["session_open"] = btc_bars_5m[0]["o"]
+        btc_eval["session_high"] = max(b["h"] for b in btc_bars_5m)
+        btc_eval["session_low"] = min(b["l"] for b in btc_bars_5m)
+        btc_eval["volume"] = sum(b.get("v", 0.0) for b in btc_bars_5m)
+        btc_eval["last_bar_utc"] = btc_bars_5m[-1].get("start_utc")
+
     events: List[Dict[str, Any]] = []
     for marker in markers[-8:]:
         mtype = str(marker.get("type", "")).upper()
@@ -312,6 +463,29 @@ def build_static_bundle() -> Dict[str, Any]:
             }
         )
 
+    if btc_eval:
+        kind_map = {
+            "ENTRY": "ENTRY_SIGNAL",
+            "STOP": "STOP_HIT_HINT",
+            "TARGET": "TAKE_PROFIT_HINT",
+            "LADDER_STOP": "TAKE_PROFIT_HINT",
+            "TIME_6H": "INFO",
+        }
+        for marker in (btc_eval.get("markers") or [])[-4:]:
+            mtype = str(marker.get("type", "")).upper()
+            kind = kind_map.get(mtype, "INFO")
+            events.append(
+                {
+                    "ts_utc": marker.get("time_utc"),
+                    "ts_et": marker.get("time_utc"),
+                    "kind": kind,
+                    "level": "CRITICAL" if kind == "ENTRY_SIGNAL" else ("WARNING" if "HINT" in kind else "INFO"),
+                    "symbol": "BTCUSD",
+                    "signal_id": marker.get("trade_id"),
+                    "message": f"BTC/USD {marker.get('type')} @ {marker.get('price')} · {marker.get('strategy', '')}",
+                }
+            )
+
     tracker_state = tracker.snapshot()
     ui_state = ts.build_ui_state(
         snapshot_dict,
@@ -320,18 +494,22 @@ def build_static_bundle() -> Dict[str, Any]:
         prev_closes=prev_closes,
         events=events,
         provider_name="github_pages",
+        btc_state=btc_eval,
     )
     ui_state["v04"] = v04_state
 
     extended = ts.extended_payload(force=True)
     candles: Dict[str, Dict[str, List[Dict[str, Any]]]] = {}
-    for symbol in ts.SYMBOLS:
-        candles[symbol] = {
-            "1m": tracker.candles(symbol, "1m"),
-            "5m": tracker.candles(symbol, "5m"),
-            "15m": tracker.candles(symbol, "15m"),
-            "1d": tracker.candles(symbol, "1d"),
-        }
+    for symbol in ALL_SYMBOLS:
+        if symbol == "BTCUSD":
+            candles[symbol] = btc_candles
+        else:
+            candles[symbol] = {
+                "1m": tracker.candles(symbol, "1m"),
+                "5m": tracker.candles(symbol, "5m"),
+                "15m": tracker.candles(symbol, "15m"),
+                "1d": tracker.candles(symbol, "1d"),
+            }
 
     return {
         "generated_at_utc": datetime.now(timezone.utc).isoformat(),
@@ -356,9 +534,10 @@ def export_pages(output_dir: Path = DOCS_DIR) -> tuple[Path, Path]:
             prior_bundle = {}
 
     bundle = build_static_bundle()
-    for sym in ts.SYMBOLS:
-        if not (bundle["candles"].get(sym, {}).get("1m")) and (prior_bundle.get("candles", {}).get(sym, {}).get("1m")):
-            bundle["candles"][sym] = prior_bundle["candles"][sym]
+    for sym in ALL_SYMBOLS:
+        for tf in ("1m", "5m", "15m", "1d"):
+            if not (bundle["candles"].get(sym, {}).get(tf)) and (prior_bundle.get("candles", {}).get(sym, {}).get(tf)):
+                bundle["candles"].setdefault(sym, {})[tf] = prior_bundle["candles"][sym][tf]
     if not (bundle["extended"].get("symbols")) and (prior_bundle.get("extended", {}).get("symbols")):
         bundle["extended"] = prior_bundle["extended"]
 

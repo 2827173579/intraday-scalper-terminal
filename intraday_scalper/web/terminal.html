@@ -258,8 +258,8 @@
     <!-- 左：专注目栏 -->
     <section class="watchlist">
       <div class="card-header" style="border:1px solid var(--line);border-radius:var(--radius);background:var(--panel-2)">
-        <h3>专注目 · SOXL / SOXS</h3>
-        <span class="badge info">IEX</span>
+        <h3>专注目 · SOXL / SOXS / BTC</h3>
+        <span class="badge info">IEX + Alpaca Crypto</span>
       </div>
       <article class="watch-card active" data-symbol="SOXL" id="card-SOXL">
         <div class="top">
@@ -293,9 +293,27 @@
           <div>1m / 5m Bars<b id="bars-SOXS">0 / 0</b></div>
         </div>
       </article>
+      <article class="watch-card" data-symbol="BTCUSD" id="card-BTCUSD">
+        <div class="top">
+          <div class="sym">BTC/USD <small>24/7 加密现货 · 0.8%宽止损</small></div>
+          <span class="trend flat" id="trend-BTCUSD">FLAT</span>
+        </div>
+        <div class="price" id="price-BTCUSD">—</div>
+        <div class="chg flat" id="chg-BTCUSD">—</div>
+        <div class="ext-line" id="ext-BTCUSD" style="display:block;border-color:rgba(0,230,118,0.3);background:rgba(0,230,118,0.08);color:var(--green)">
+          <span id="session-tag-BTCUSD">🌏 亚盘 00-08 UTC</span> ｜ <span id="macro-gate-BTCUSD">多头有效</span>
+        </div>
+        <div class="stats">
+          <div>24h 成交量<b id="vol-BTCUSD">—</b></div>
+          <div>8h-VWAP<b id="vwap-BTCUSD">—</b></div>
+          <div>24h 高 / 低<b id="hl-BTCUSD">— / —</b></div>
+          <div>日线趋势 EMA<b id="macro-trend-BTCUSD">—</b></div>
+          <div>5m / 15m Bars<b id="bars-BTCUSD">0 / 0</b></div>
+        </div>
+      </article>
       <div class="hint">
         点击卡片切换中间图表标的。<br>
-        IEX 为单一交易所口径，成交量/VWAP 非全市场 consolidated。<br>
+        SOXL/SOXS 为 IEX 单交易所口径；BTC/USD 为 Alpaca 24/7 全天候加密现货。<br>
         本终端只做展示与提醒，<b>绝不自动下单</b>。
       </div>
       <div class="hint" id="extHint"></div>
@@ -341,15 +359,23 @@
 
       <!-- 卡片2：策略雷达 -->
       <article class="card">
-        <div class="card-header"><h3>② 策略雷达</h3><span class="badge info">观察</span></div>
+        <div class="card-header"><h3>② 策略雷达</h3><span class="badge info" id="radarBadge">观察</span></div>
         <div class="card-body" id="radarBody">
+          <div class="card-sub" style="font-size:11px;color:var(--muted);margin-bottom:4px;font-weight:600">美股雷达 · SOXL / SOXS (10:00–14:00 ET)</div>
           <div class="radar-row"><span class="name">SOXL · ORB 开盘区间</span><span class="state" id="orb-SOXL">等待数据</span></div>
           <div class="radar-row"><span class="name">SOXS · ORB 开盘区间</span><span class="state" id="orb-SOXS">等待数据</span></div>
           <div class="radar-row"><span class="name">SOXL · SMC 1m 刺穿</span><span class="state" id="smc1-SOXL">—</span></div>
           <div class="radar-row"><span class="name">SOXL · SMC 5m 刺穿</span><span class="state" id="smc5-SOXL">—</span></div>
           <div class="radar-row"><span class="name">SOXS · SMC 1m 刺穿</span><span class="state" id="smc1-SOXS">—</span></div>
           <div class="radar-row"><span class="name">SOXS · SMC 5m 刺穿</span><span class="state" id="smc5-SOXS">—</span></div>
-          <div class="smc-note">V0.5 A+F 引擎：10:00–14:00 开仓；SMC 严格 AND；出场 Runner-A 4.5R 阶梯锁利（1.5R→+0.20R、2.2R→+1.20R、3.0R→+2.00R，目标 4.5R）；B1 $10,000/$60。</div>
+
+          <div class="card-sub" style="font-size:11px;color:var(--muted);margin:8px 0 4px;font-weight:600">加密雷达 · BTC/USD (24/7 A+F+Macro)</div>
+          <div class="radar-row"><span class="name">BTC · 日线 EMA 趋势门控</span><span class="state" id="macro-radar-BTC">待计算</span></div>
+          <div class="radar-row"><span class="name">BTC · 8h-VWAP 流动性</span><span class="state" id="vwap-radar-BTC">待计算</span></div>
+          <div class="radar-row"><span class="name">BTC · 波动率 F 过滤</span><span class="state" id="vol-radar-BTC">待计算</span></div>
+          <div class="radar-row"><span class="name">BTC · 5m 信号形态 (SMC/EMA)</span><span class="state" id="setup-radar-BTC">待计算</span></div>
+
+          <div class="smc-note" id="radarNote">V0.5 A+F 引擎（美股 10:00–14:00 ET；BTC 全天候 24/7 0.8% 宽止损 + 6小时 TIME_6H 出场；Runner-A 4.5R 阶梯锁利 1.5R→+0.20R、2.2R→+1.20R、3.0R→+2.00R；B1 $10,000/$60）。</div>
         </div>
       </article>
 
@@ -409,6 +435,24 @@ function fmt(n, digits = 2) {
   if (n === null || n === undefined || Number.isNaN(Number(n))) return "—";
   return Number(n).toLocaleString("en-US", { minimumFractionDigits: digits, maximumFractionDigits: digits });
 }
+function fmtPrice(n, sym) {
+  if (n === null || n === undefined || Number.isNaN(Number(n))) return "—";
+  const digits = (sym === "BTCUSD" || sym === "BTC" || sym === "BTC/USD") ? 2 : 3;
+  return Number(n).toLocaleString("en-US", { minimumFractionDigits: digits, maximumFractionDigits: digits });
+}
+function fmtShares(n, sym) {
+  if (n === null || n === undefined || Number.isNaN(Number(n))) return "—";
+  if (sym === "BTCUSD" || sym === "BTC" || sym === "BTC/USD") {
+    return Number(n).toFixed(4) + " BTC";
+  }
+  return Number(n).toLocaleString("en-US", { minimumFractionDigits: 0, maximumFractionDigits: 0 }) + " 股";
+}
+function btcSessionBadge() {
+  const utcHour = new Date().getUTCHours();
+  if (utcHour >= 0 && utcHour < 8) return "🌏 亚盘 00-08 UTC";
+  if (utcHour >= 8 && utcHour < 16) return "🌍 欧盘 08-16 UTC";
+  return "🌎 美盘 16-24 UTC";
+}
 function money(n) {
   if (n === null || n === undefined || Number.isNaN(Number(n))) return "—";
   const v = Number(n);
@@ -463,40 +507,150 @@ setInterval(updateClocks, 250);
 updateClocks();
 
 function renderSymbols(symbols) {
-  for (const sym of ["SOXL", "SOXS"]) {
-    const s = symbols[sym] || {};
-    $("price-" + sym).textContent = s.last_price === null || s.last_price === undefined ? "—" : "$" + fmt(s.last_price, 3);
-    const chg = s.change_pct;
-    const chgEl = $("chg-" + sym);
-    chgEl.className = "chg " + cls(chg);
-    chgEl.textContent = chg === null || chg === undefined ? "—" : (chg >= 0 ? "▲ " : "▼ ") + fmt(Math.abs(chg), 2) + "%  今日";
-    $("vol-" + sym).textContent = s.volume ? Number(s.volume).toLocaleString("en-US") : "—";
-    $("vwap-" + sym).textContent = s.vwap === null || s.vwap === undefined ? "—" : "$" + fmt(s.vwap, 3);
-    $("hl-" + sym).textContent = (s.session_high !== null && s.session_high !== undefined ? "$" + fmt(s.session_high, 2) : "—") + " / " + (s.session_low !== null && s.session_low !== undefined ? "$" + fmt(s.session_low, 2) : "—");
-    $("bars-" + sym).textContent = (s.bars_1m || 0) + " / " + (s.bars_5m || 0);
-    const trend = $("trend-" + sym);
-    const label = s.trend_1m || "flat";
-    trend.className = "trend " + label;
-    trend.textContent = label === "bull" ? "BULL 1m" : label === "bear" ? "BEAR 1m" : "FLAT 1m";
+  for (const sym of ["SOXL", "SOXS", "BTCUSD"]) {
+    const s = (symbols && symbols[sym]) || {};
+    const priceEl = $("price-" + sym);
+    if (!priceEl) continue;
+
+    if (sym === "BTCUSD") {
+      priceEl.textContent = (s.last_price === null || s.last_price === undefined) ? "—" : "$" + fmt(s.last_price, 2);
+      const chg = s.change_pct;
+      const chgEl = $("chg-" + sym);
+      if (chgEl) {
+        chgEl.className = "chg " + cls(chg);
+        chgEl.textContent = (chg === null || chg === undefined) ? "—" : ((chg >= 0 ? "▲ +" : "▼ ") + fmt(Math.abs(chg), 2) + "%  24h");
+      }
+      const volEl = $("vol-" + sym);
+      if (volEl) volEl.textContent = s.volume ? Number(s.volume).toLocaleString("en-US", { maximumFractionDigits: 2 }) : "—";
+      const vwapEl = $("vwap-" + sym);
+      if (vwapEl) {
+        const vwapVal = s.session_vwap ?? s.vwap;
+        vwapEl.textContent = (vwapVal === null || vwapVal === undefined) ? "—" : "$" + fmt(vwapVal, 2);
+      }
+      const hlEl = $("hl-" + sym);
+      if (hlEl) {
+        hlEl.textContent = ((s.session_high !== null && s.session_high !== undefined) ? "$" + fmt(s.session_high, 2) : "—") +
+          " / " + ((s.session_low !== null && s.session_low !== undefined) ? "$" + fmt(s.session_low, 2) : "—");
+      }
+      const barsEl = $("bars-" + sym);
+      if (barsEl) barsEl.textContent = (s.bars_5m || 0) + " / " + (s.bars_15m || (s.bars_5m ? Math.floor(s.bars_5m / 3) : 0));
+
+      const sessionTag = s.session_tag || btcSessionBadge();
+      const tagEl = $("session-tag-BTCUSD");
+      if (tagEl) tagEl.textContent = sessionTag;
+
+      const macroGateEl = $("macro-gate-BTCUSD");
+      const macroTrendEl = $("macro-trend-BTCUSD");
+      const isBull = Boolean(
+        (s.macro_gate && (s.macro_gate.bullish || s.macro_gate.bull)) ||
+        s.macro_status === "多头顺势" ||
+        s.macro_status === "多头有效" ||
+        (s.macro_gate && s.macro_gate.state === "bull")
+      );
+      if (macroGateEl) {
+        macroGateEl.textContent = isBull ? "多头有效" : "趋势过滤 · 观望";
+        macroGateEl.style.color = isBull ? "var(--green)" : "var(--warn)";
+      }
+      if (macroTrendEl) {
+        macroTrendEl.textContent = isBull ? "多头 (D20>D50)" : "观望 (整理/空头)";
+        macroTrendEl.style.color = isBull ? "var(--green)" : "var(--muted)";
+      }
+
+      const trend = $("trend-BTCUSD");
+      if (trend) {
+        const label = s.trend_5m || s.trend_1m || (isBull ? "bull" : "flat");
+        trend.className = "trend " + label;
+        trend.textContent = label === "bull" ? "BULL 5m" : label === "bear" ? "BEAR 5m" : "FLAT 5m";
+      }
+    } else {
+      priceEl.textContent = (s.last_price === null || s.last_price === undefined) ? "—" : "$" + fmt(s.last_price, 3);
+      const chg = s.change_pct;
+      const chgEl = $("chg-" + sym);
+      chgEl.className = "chg " + cls(chg);
+      chgEl.textContent = chg === null || chg === undefined ? "—" : (chg >= 0 ? "▲ " : "▼ ") + fmt(Math.abs(chg), 2) + "%  今日";
+      $("vol-" + sym).textContent = s.volume ? Number(s.volume).toLocaleString("en-US") : "—";
+      $("vwap-" + sym).textContent = s.vwap === null || s.vwap === undefined ? "—" : "$" + fmt(s.vwap, 3);
+      $("hl-" + sym).textContent = (s.session_high !== null && s.session_high !== undefined ? "$" + fmt(s.session_high, 2) : "—") + " / " + (s.session_low !== null && s.session_low !== undefined ? "$" + fmt(s.session_low, 2) : "—");
+      $("bars-" + sym).textContent = (s.bars_1m || 0) + " / " + (s.bars_5m || 0);
+      const trend = $("trend-" + sym);
+      const label = s.trend_1m || "flat";
+      trend.className = "trend " + label;
+      trend.textContent = label === "bull" ? "BULL 1m" : label === "bear" ? "BEAR 1m" : "FLAT 1m";
+    }
   }
   if (state.extended) renderExtended();
 }
 
 function renderRadar(radar) {
   for (const sym of ["SOXL", "SOXS"]) {
-    const r = radar[sym] || {};
+    const r = (radar && radar[sym]) || {};
     const orb = r.orb_status || {};
     const orbEl = $("orb-" + sym);
-    orbEl.textContent = orb.label || "等待数据";
-    orbEl.className = "state " + (orb.state === "break_up" ? "up" : orb.state === "break_down" ? "down" : "flat");
+    if (orbEl) {
+      orbEl.textContent = orb.label || "等待数据";
+      orbEl.className = "state " + (orb.state === "break_up" ? "up" : orb.state === "break_down" ? "down" : "flat");
+    }
     const smc1 = r.smc_1m || {};
     const smc1El = $("smc1-" + sym);
-    smc1El.textContent = smc1.label || "—";
-    smc1El.className = "state " + (smc1.state === "bullish" ? "up" : smc1.state === "bearish" ? "down" : "flat");
+    if (smc1El) {
+      smc1El.textContent = smc1.label || "—";
+      smc1El.className = "state " + (smc1.state === "bullish" ? "up" : smc1.state === "bearish" ? "down" : "flat");
+    }
     const smc5 = r.smc_5m || {};
     const smc5El = $("smc5-" + sym);
-    smc5El.textContent = smc5.label || "—";
-    smc5El.className = "state " + (smc5.state === "bullish" ? "up" : smc5.state === "bearish" ? "down" : "flat");
+    if (smc5El) {
+      smc5El.textContent = smc5.label || "—";
+      smc5El.className = "state " + (smc5.state === "bullish" ? "up" : smc5.state === "bearish" ? "down" : "flat");
+    }
+  }
+
+  // BTC/USD Radar indicators
+  const btcR = (radar && radar.BTCUSD) || (state.latest && state.latest.btc && state.latest.btc.radar) || {};
+  const macroGate = btcR.macro_gate || {};
+  const macroEl = $("macro-radar-BTC");
+  if (macroEl) {
+    const isBull = Boolean(macroGate.bullish || macroGate.bull || macroGate.state === "bull");
+    macroEl.textContent = macroGate.label || (isBull ? "多头趋势门控通过" : "日线趋势过滤 · 观望");
+    macroEl.className = "state " + (isBull ? "up" : "down");
+  }
+
+  const vwapEl = $("vwap-radar-BTC");
+  if (vwapEl) {
+    const vwapVal = btcR.session_vwap;
+    const vwapStatus = btcR.vwap_status || "flat";
+    if (vwapVal) {
+      vwapEl.textContent = (vwapStatus === "above" ? "8h-VWAP 支撑 " : "8h-VWAP 压制 ") + "$" + fmt(vwapVal, 2);
+      vwapEl.className = "state " + (vwapStatus === "above" ? "up" : "down");
+    } else {
+      vwapEl.textContent = "待计算";
+      vwapEl.className = "state flat";
+    }
+  }
+
+  const volFilter = btcR.vol_filter || {};
+  const volEl = $("vol-radar-BTC");
+  if (volEl) {
+    volEl.textContent = volFilter.label || (volFilter.passed ? "波动达标" : "波动不足 · 拦截");
+    volEl.className = "state " + (volFilter.passed ? "up" : "warn");
+  }
+
+  const setupEl = $("setup-radar-BTC");
+  if (setupEl) {
+    const smc = btcR.smc_sweep || {};
+    const ema = btcR.ema_pull || {};
+    if (smc.triggered && ema.triggered) {
+      setupEl.textContent = "双共振 (SMC+EMA)";
+      setupEl.className = "state up";
+    } else if (smc.triggered) {
+      setupEl.textContent = "SMC刺穿确认";
+      setupEl.className = "state up";
+    } else if (ema.triggered) {
+      setupEl.textContent = "EMA回踩确认";
+      setupEl.className = "state up";
+    } else {
+      setupEl.textContent = "等待回踩/刺穿";
+      setupEl.className = "state flat";
+    }
   }
 }
 
@@ -530,7 +684,7 @@ function renderRisk(risk) {
   else { badge.className = "badge ok"; badge.textContent = "可交易"; }
 }
 
-function buildLadderGuide(entry, stop, maxMfeR, stopKind) {
+function buildLadderGuide(entry, stop, maxMfeR, stopKind, isBtc = false) {
   const e = Number(entry || 0), s = Number(stop || 0);
   const r = e - s;
   if (!(e > 0 && s > 0 && r > 0)) return { target45: null, html: "—", cls: "v flat" };
@@ -540,33 +694,80 @@ function buildLadderGuide(entry, stop, maxMfeR, stopKind) {
   const t30 = e + 3.0 * r, l30 = e + 2.00 * r;
   const mfe = Number(maxMfeR || 0);
   const kind = String(stopKind || "").toUpperCase();
+  const digits = isBtc ? 2 : 2;
   let status = "待触发 +1.5R";
   let clsName = "v flat";
-  if (kind === "TARGET" || mfe >= 4.5) { status = "已达 +4.5R 止盈目标"; clsName = "v up"; }
-  else if (kind === "LADDER_3R" || mfe >= 3.0) { status = "已锁三档 +2.00R ($" + fmt(l30, 2) + ")"; clsName = "v up"; }
-  else if (kind === "LADDER_2.2R" || mfe >= 2.2) { status = "已锁二档 +1.20R ($" + fmt(l22, 2) + ")"; clsName = "v up"; }
-  else if (kind === "LADDER_1.5R" || mfe >= 1.5) { status = "已锁一档 +0.20R ($" + fmt(l15, 2) + ")"; clsName = "v up"; }
-  const detail = "1.5R($" + fmt(t15, 2) + ")→$" + fmt(l15, 2) +
-    " ｜ 2.2R($" + fmt(t22, 2) + ")→$" + fmt(l22, 2) +
-    " ｜ 3R($" + fmt(t30, 2) + ")→$" + fmt(l30, 2);
+  if (kind === "TARGET" || mfe >= 4.5) { status = "已达 +4.5R 止盈目标 ($" + fmt(target45, digits) + ")"; clsName = "v up"; }
+  else if (kind === "LADDER_3R" || mfe >= 3.0) { status = "已锁三档 +2.00R ($" + fmt(l30, digits) + ")"; clsName = "v up"; }
+  else if (kind === "LADDER_2.2R" || mfe >= 2.2) { status = "已锁二档 +1.20R ($" + fmt(l22, digits) + ")"; clsName = "v up"; }
+  else if (kind === "LADDER_1.5R" || mfe >= 1.5) { status = "已锁一档 +0.20R ($" + fmt(l15, digits) + ")"; clsName = "v up"; }
+  const detail = "1.5R($" + fmt(t15, digits) + ")→$" + fmt(l15, digits) +
+    " ｜ 2.2R($" + fmt(t22, digits) + ")→$" + fmt(l22, digits) +
+    " ｜ 3R($" + fmt(t30, digits) + ")→$" + fmt(l30, digits) +
+    (isBtc ? " ｜ 4.5R($" + fmt(target45, digits) + ")" : "");
   return { target45: target45, html: status + "<br><span style='color:var(--muted);font-size:10px'>" + detail + "</span>", cls: clsName };
 }
 
 function renderExecution(exec, v04) {
   const badge = $("execBadge");
+  const isCryptoActive = state.symbol === "BTCUSD";
+
+  let activeExec = exec || {};
+  if (state.latest && state.latest.execution_by_symbol && state.latest.execution_by_symbol[state.symbol]) {
+    activeExec = state.latest.execution_by_symbol[state.symbol];
+  } else if (isCryptoActive && state.latest && state.latest.btc && state.latest.btc.execution) {
+    activeExec = state.latest.btc.execution;
+  }
+
   const replayV05Trades = (((((state.replay || {}).recap || {}).versions || {})["V0.5"] || {}).trades) || [];
   const fallbackTrade = replayV05Trades.length ? replayV05Trades[replayV05Trades.length - 1] : null;
   const trade = (v04 && v04.latest_trade) || fallbackTrade;
-  if (!exec.has_signal && !trade) {
-    $("execEmpty").style.display = "block";
-    $("execGrid").style.display = "none";
-    badge.className = "badge"; badge.textContent = "等待信号";
-    return;
+
+  const currentSym = (activeExec && activeExec.symbol) || (trade && trade.symbol) || state.symbol || "SOXL";
+  const isBtc = (currentSym === "BTCUSD" || currentSym === "BTC");
+
+  const sharesBoxLabel = document.querySelector(".exec-box.shares .k");
+  if (sharesBoxLabel) {
+    sharesBoxLabel.textContent = isBtc ? "建议数量（B1：风险 $60 / 名义 $10,000）" : "建议股数（B1：风险 $60 / 名义 $10,000）";
   }
-  if (!exec.has_signal && trade) {
+
+  if (!activeExec.has_signal && (!trade || isBtc)) {
+    if (isBtc && activeExec.entry) {
+      const entry = Number(activeExec.entry || 0);
+      const stop = Number(activeExec.stop || (entry * 0.992));
+      const ladder = buildLadderGuide(entry, stop, activeExec.position_r, null, true);
+      const target = Number(activeExec.target_4_5r ?? ladder.target45 ?? (entry + 4.5 * (entry - stop)));
+      const shares = Number(activeExec.shares || (entry > 0 && (entry - stop) > 0 ? Math.min(60.0 / (entry - stop), 10000.0 / entry) : 0));
+      $("execEmpty").style.display = "none";
+      $("execGrid").style.display = "block";
+      badge.className = "badge info";
+      badge.textContent = "24/7 待机 · BTC/USD 试算";
+      $("execEntry").textContent = "$" + fmt(entry, 2);
+      $("execStop").textContent = "$" + fmt(stop, 2);
+      $("execShares").textContent = fmtShares(shares, "BTCUSD");
+      $("execTarget").textContent = "$" + fmt(target, 2);
+      $("execStrategy").textContent = activeExec.strategy || "A+F_Wide(0.8%)+Macro (0.8%宽止损)";
+      $("execRisk").textContent = "$" + fmt(Math.max(0, entry - stop) * shares, 2) + " / $" + fmt(shares * entry, 2);
+      const be = $("execBreakeven");
+      be.innerHTML = ladder.html;
+      be.className = ladder.cls;
+      const sigIdEl = $("execSignalId");
+      if (sigIdEl) sigIdEl.textContent = activeExec.signal_id || "BTC-STANDBY";
+      return;
+    }
+
+    if (!activeExec.has_signal && !trade) {
+      $("execEmpty").style.display = "block";
+      $("execGrid").style.display = "none";
+      badge.className = "badge"; badge.textContent = "等待信号";
+      return;
+    }
+  }
+
+  if (!activeExec.has_signal && trade && !isBtc) {
     const entry = Number(trade.entry_price_fill ?? trade.entry_price ?? trade.entry ?? 0);
     const stop = Number(trade.stop_price ?? trade.initial_stop_price ?? trade.stop ?? 0);
-    const ladder = buildLadderGuide(entry, stop, trade.max_mfe_r, trade.exit_stop_kind);
+    const ladder = buildLadderGuide(entry, stop, trade.max_mfe_r, trade.exit_stop_kind, false);
     const target = Number(trade.target_price ?? trade.target ?? ladder.target45 ?? 0);
     const shares = Number(trade.shares ?? 0);
     const risk = Math.max(0, entry - stop) * shares;
@@ -574,10 +775,10 @@ function renderExecution(exec, v04) {
     $("execGrid").style.display = "block";
     badge.className = "badge accent";
     badge.textContent = "V0.5(A+F) · " + (trade.symbol || "") + " · " + (trade.exit_reason || "OPEN");
-    $("execEntry").textContent = "$" + fmt(entry, 3);
-    $("execStop").textContent = "$" + fmt(stop, 3);
-    $("execShares").textContent = shares ? fmt(shares, 2) + " 股" : "—";
-    $("execTarget").textContent = target ? "$" + fmt(target, 3) : "—";
+    $("execEntry").textContent = "$" + fmtPrice(entry, trade.symbol);
+    $("execStop").textContent = "$" + fmtPrice(stop, trade.symbol);
+    $("execShares").textContent = fmtShares(shares, trade.symbol);
+    $("execTarget").textContent = target ? "$" + fmtPrice(target, trade.symbol) : "—";
     const stratLabel = trade.strategy_label || trade.strategy || "";
     const stopKind = trade.exit_stop_kind ? " · " + trade.exit_stop_kind : "";
     $("execStrategy").textContent = stratLabel + stopKind;
@@ -588,18 +789,22 @@ function renderExecution(exec, v04) {
     $("execSignalId").textContent = trade.trade_id || trade.signal_id || "—";
     return;
   }
-  const ladder = buildLadderGuide(exec.entry, exec.stop, exec.position_r, null);
-  const targetPrice = exec.target_4_5r ?? ladder.target45 ?? exec.target;
+
+  const sym = activeExec.symbol || state.symbol;
+  const symIsCrypto = (sym === "BTCUSD" || sym === "BTC");
+  const ladder = buildLadderGuide(activeExec.entry, activeExec.stop, activeExec.position_r, null, symIsCrypto);
+  const targetPrice = activeExec.target_4_5r ?? ladder.target45 ?? activeExec.target;
   $("execEmpty").style.display = "none";
   $("execGrid").style.display = "block";
-  badge.className = "badge accent"; badge.textContent = "V0.5 ENTRY · " + (exec.symbol || "");
-  $("execEntry").textContent = "$" + fmt(exec.entry, 3);
-  $("execStop").textContent = "$" + fmt(exec.stop, 3);
-  $("execShares").textContent = exec.shares === null || exec.shares === undefined ? "—" : fmt(exec.shares, 2) + " 股";
-  $("execTarget").textContent = targetPrice === null || targetPrice === undefined ? "—" : "$" + fmt(targetPrice, 3);
-  $("execStrategy").textContent = exec.strategy || "—";
-  $("execRisk").textContent = "$" + fmt(exec.actual_risk, 2) + " / $" + fmt(exec.notional, 2);
-  $("execSignalId").textContent = exec.signal_id || "—";
+  badge.className = "badge accent";
+  badge.textContent = (symIsCrypto ? "24/7 现货 · " : "V0.5 ENTRY · ") + sym;
+  $("execEntry").textContent = "$" + fmtPrice(activeExec.entry, sym);
+  $("execStop").textContent = "$" + fmtPrice(activeExec.stop, sym);
+  $("execShares").textContent = fmtShares(activeExec.shares, sym);
+  $("execTarget").textContent = targetPrice === null || targetPrice === undefined ? "—" : "$" + fmtPrice(targetPrice, sym);
+  $("execStrategy").textContent = activeExec.strategy || (symIsCrypto ? "A+F_Wide(0.8%)+Macro" : "—");
+  $("execRisk").textContent = "$" + fmt(activeExec.actual_risk, 2) + " / $" + fmt(activeExec.notional, 2);
+  $("execSignalId").textContent = activeExec.signal_id || "—";
   const be = $("execBreakeven");
   be.innerHTML = ladder.html;
   be.className = ladder.cls;
@@ -644,9 +849,10 @@ function renderJournal(journal) {
   if (positions.length) {
     posBox.innerHTML = positions.map((p, i) => {
       const sym = String(p.symbol || "SOXL").toUpperCase();
+      const isBtc = (sym === "BTCUSD" || sym === "BTC");
       const entry = Number(p.entry_price || 0);
       const stop = Number(p.stop_loss || 0);
-      const rUnit = Math.max(0, entry - stop);
+      const rUnit = Math.max(1e-6, entry - stop);
       const target = Number(p.take_profit || (rUnit > 0 ? entry + 4.5 * rUnit : 0));
       const livePrice = Number((((state.latest || {}).symbols || {})[sym] || {}).last_price);
       const curR = (Number.isFinite(livePrice) && livePrice > 0 && rUnit > 0) ? (livePrice - entry) / rUnit : null;
@@ -655,25 +861,40 @@ function renderJournal(journal) {
       let recStop = stop;
       let tierText = "初始止损 (-1.0R)";
       if (rUnit > 0) {
-        if (mfeR >= 3.0) { recStop = entry + 2.00 * rUnit; tierText = "三档锁利 (+2.00R)"; }
+        if (mfeR >= 4.5) { recStop = entry + 4.5 * rUnit; tierText = "止盈目标 (+4.5R)"; }
+        else if (mfeR >= 3.0) { recStop = entry + 2.00 * rUnit; tierText = "三档锁利 (+2.00R)"; }
         else if (mfeR >= 2.2) { recStop = entry + 1.20 * rUnit; tierText = "二档锁利 (+1.20R)"; }
         else if (mfeR >= 1.5) { recStop = entry + 0.20 * rUnit; tierText = "一档锁利 (+0.20R)"; }
       }
       const alertKey = (p.signal_id || sym) + "|" + tierText;
-      if (mfeR >= 1.5 && !localLadderAlerts[alertKey]) {
+      if (mfeR >= 1.5 && mfeR < 4.5 && !localLadderAlerts[alertKey]) {
         localLadderAlerts[alertKey] = true;
-        showBanner("TAKE_PROFIT_HINT", "人工持仓 " + sym + " 已达 +" + mfeR.toFixed(2) + "R，请将券商止损单上移至 $" + fmt(recStop, 3) + " (" + tierText + ")", sym, false);
+        showBanner("TAKE_PROFIT_HINT", "人工持仓 " + sym + " 已达 +" + mfeR.toFixed(2) + "R，请将止损单上移至 $" + fmtPrice(recStop, sym) + " (" + tierText + ")", sym, false);
+      }
+      const targetKey = (p.signal_id || sym) + "|TARGET_4.5R";
+      if (mfeR >= 4.5 && !localLadderAlerts[targetKey]) {
+        localLadderAlerts[targetKey] = true;
+        showBanner("TAKE_PROFIT_HINT", "🎯 人工持仓 " + sym + " 已达 +4.5R 止盈目标 ($" + fmtPrice(target, sym) + ")，建议交易所市价/挂单止盈！", sym, false);
+      }
+      if (isBtc && p.entry_utc) {
+        const holdHours = (Date.now() - Date.parse(p.entry_utc)) / 3600000.0;
+        const timeKey = (p.signal_id || sym) + "|TIME_6H";
+        if (holdHours >= 6.0 && !localLadderAlerts[timeKey]) {
+          localLadderAlerts[timeKey] = true;
+          showBanner("EOD_REMINDER", "⏰ 人工持仓 BTCUSD 已满 6 小时（72 根 5m K线），触发 TIME_6H 规则，建议收盘平仓！", sym, false);
+        }
       }
       const livePnl = (Number.isFinite(livePrice) && livePrice > 0) ? (livePrice - entry) * Number(p.shares || 0) : null;
       const liveStr = curR !== null
         ? (" ｜ 浮盈 <b class='" + cls(livePnl) + "'>" + money(livePnl) + " (" + (curR >= 0 ? "+" : "") + curR.toFixed(2) + "R)</b>")
         : "";
-      return '<div class="pos-line">持仓 ' + (i + 1) + '：<b>' + sym + '</b> ' + fmt(p.shares, 2) +
-        " 股 @ $" + fmt(entry, 3) + liveStr +
-        "<br>当前应挂止损：<b style='color:var(--yellow)'>$" + fmt(recStop, 3) + " (" + tierText + ")</b> ｜ 4.5R目标 $" + fmt(target, 3) + "</div>";
+      const sharesStr = fmtShares(p.shares, sym);
+      return '<div class="pos-line">持仓 ' + (i + 1) + '：<b>' + sym + '</b> ' + sharesStr +
+        " @ $" + fmtPrice(entry, sym) + liveStr +
+        "<br>当前应挂止损：<b style='color:var(--yellow)'>$" + fmtPrice(recStop, sym) + " (" + tierText + ")</b> ｜ 4.5R目标 $" + fmtPrice(target, sym) + "</div>";
     }).join("");
   } else {
-    posBox.innerHTML = '<div class="pos-line">当前无持仓（支持输入 ENTRY &lt;ID&gt; &lt;价格&gt; &lt;股数&gt; 实时跟踪 V0.5 阶梯移损）</div>';
+    posBox.innerHTML = '<div class="pos-line">当前无持仓（支持输入 买 BTCUSD 0.1 @ 75400 或 ENTRY &lt;ID&gt; &lt;价格&gt; &lt;股数&gt; 实时跟踪 4.5R 阶梯移损）</div>';
   }
 
   const table = $("tradeTable");
@@ -684,66 +905,182 @@ function renderJournal(journal) {
   const rows = trades.map((t) => {
     const buy = "BUY";
     const pnlCls = (t.pnl || 0) >= 0 ? "up" : "down";
+    const sym = t.symbol || "SOXL";
     return "<tr><td>" + ((t.entry_utc || "").slice(11, 16)) + "</td>" +
-      '<td class="buy-tag">' + buy + "</td><td>" + (t.symbol || "") + "</td>" +
-      "<td>$" + fmt(t.entry_price, 3) + "</td><td>$" + fmt(t.exit_price, 3) + "</td>" +
-      "<td>" + fmt(t.shares, 2) + "</td>" +
+      '<td class="buy-tag">' + buy + "</td><td>" + sym + "</td>" +
+      "<td>$" + fmtPrice(t.entry_price, sym) + "</td><td>$" + fmtPrice(t.exit_price, sym) + "</td>" +
+      "<td>" + fmtShares(t.shares, sym) + "</td>" +
       '<td class="' + pnlCls + '">' + money(t.pnl) + "</td></tr>";
   }).join("");
-  table.innerHTML = '<table class="trade-table"><thead><tr><th>入场</th><th>方向</th><th>代码</th><th>买价</th><th>卖价</th><th>股数</th><th>盈亏</th></tr></thead><tbody>' +
+  table.innerHTML = '<table class="trade-table"><thead><tr><th>入场</th><th>方向</th><th>代码</th><th>买价</th><th>卖价</th><th>数量</th><th>盈亏</th></tr></thead><tbody>' +
     rows + "</tbody></table>";
 }
 
+function parseJournalInput(rawLine) {
+  const line = rawLine.trim();
+  if (!line) return null;
+
+  // 1. Natural BUY regex:
+  // e.g. "买 BTCUSD 0.1 @ 75400", "买 0.1 BTC @ 75400", "BUY BTCUSD 0.1 @ 75400", "买入 SOXL 100 @ 44.12"
+  const buy1 = line.match(/^(?:买|买入|BUY|LONG)\s+([A-Za-z0-9_\/]+)\s+([0-9.]+)(?:\s*(?:@|at|价格|，|,|\s)\s*([0-9.]+))?(?:\s*(?:止损|stop|SL)\s*([0-9.]+))?/i);
+  const buy2 = line.match(/^(?:买|买入|BUY|LONG)\s+([0-9.]+)\s+([A-Za-z0-9_\/]+)(?:\s*(?:@|at|价格|，|,|\s)\s*([0-9.]+))?(?:\s*(?:止损|stop|SL)\s*([0-9.]+))?/i);
+
+  if (buy1 || buy2) {
+    let symRaw, shares, price, stop;
+    if (buy1 && isNaN(Number(buy1[1]))) {
+      symRaw = buy1[1];
+      shares = Number(buy1[2]);
+      price = buy1[3] ? Number(buy1[3]) : null;
+      stop = buy1[4] ? Number(buy1[4]) : null;
+    } else if (buy2) {
+      shares = Number(buy2[1]);
+      symRaw = buy2[2];
+      price = buy2[3] ? Number(buy2[3]) : null;
+      stop = buy2[4] ? Number(buy2[4]) : null;
+    }
+    if (symRaw) {
+      let sym = symRaw.toUpperCase().replace("/", "").replace("-", "");
+      if (sym === "BTC" || sym === "XBTUSD") sym = "BTCUSD";
+      return { action: "ENTRY", symbol: sym, shares: shares, price: price, stop: stop };
+    }
+  }
+
+  // 2. Syntax: ENTRY <symbol|id> <arg1> <arg2> [stop] [symbol]
+  // e.g. "ENTRY BTCUSD 75400 0.1", "ENTRY BTCUSD 0.1 @ 75400", "ENTRY SIG1 44.12 100 43.72 SOXL"
+  const entryMatch = line.match(/^ENTRY\s+(.+)$/i);
+  if (entryMatch) {
+    const rawTokens = entryMatch[1].trim().split(/\s+/).filter((t) => t !== "@" && t !== "at");
+    let sym = null, price = null, shares = null, stop = null, sigId = null;
+    const token0Upper = rawTokens[0].toUpperCase().replace("/", "").replace("-", "");
+    if (["BTCUSD", "BTC", "SOXL", "SOXS"].includes(token0Upper)) {
+      sym = token0Upper === "BTC" ? "BTCUSD" : token0Upper;
+      const n1 = Number(rawTokens[1]), n2 = Number(rawTokens[2]);
+      if (sym === "BTCUSD" && n1 < 50 && n2 > 500) {
+        shares = n1; price = n2;
+      } else if (sym === "BTCUSD" && n1 > 500 && n2 < 50) {
+        price = n1; shares = n2;
+      } else {
+        price = n1; shares = n2;
+      }
+      stop = rawTokens[3] ? Number(rawTokens[3]) : null;
+    } else {
+      sigId = rawTokens[0];
+      price = Number(rawTokens[1]);
+      shares = Number(rawTokens[2]);
+      stop = rawTokens[3] ? Number(rawTokens[3]) : null;
+      if (rawTokens[4]) {
+        const s = rawTokens[4].toUpperCase().replace("/", "").replace("-", "");
+        sym = (s === "BTC" || s === "BTCUSD") ? "BTCUSD" : s;
+      }
+    }
+    if (price > 0 && shares > 0) {
+      return { action: "ENTRY", signal_id: sigId, symbol: sym, shares: shares, price: price, stop: stop };
+    }
+  }
+
+  // 3. Natural SELL / EXIT / FLAT:
+  // e.g. "卖 BTCUSD @ 76500", "卖 76500", "平仓 BTCUSD", "FLAT", "EXIT BTCUSD 76500"
+  const sellMatch = line.match(/^(?:卖|卖出|平仓|SELL|EXIT|FLAT)(?:\s+([A-Za-z0-9_\/]+))?(?:\s*(?:@|at)?\s*([0-9.]+))?/i);
+  if (sellMatch) {
+    let sym = null, price = null;
+    const tok1 = sellMatch[1];
+    const tok2 = sellMatch[2];
+    if (tok1 && isNaN(Number(tok1))) {
+      sym = tok1.toUpperCase().replace("/", "").replace("-", "");
+      if (sym === "BTC") sym = "BTCUSD";
+      if (tok2) price = Number(tok2);
+    } else if (tok1 && !isNaN(Number(tok1))) {
+      price = Number(tok1);
+    }
+    return { action: "EXIT", symbol: sym, price: price };
+  }
+
+  // 4. STOP <price> or 止损 <price>
+  const stopMatch = line.match(/^(?:STOP|止损)\s*([0-9.]+)/i);
+  if (stopMatch) {
+    return { action: "STOP", price: Number(stopMatch[1]) };
+  }
+
+  // 5. RESET or 清空
+  if (/^(?:RESET|清空|重置)$/i.test(line)) {
+    return { action: "RESET" };
+  }
+
+  return null;
+}
+
 function handleLocalCommand(line) {
-  const parts = line.trim().split(/\s+/);
-  const cmd = (parts[0] || "").toUpperCase();
+  const parsed = parseJournalInput(line);
   const j = loadLocalJournal();
   const nowIso = new Date().toISOString();
-  if (cmd === "RESET") {
+
+  if (parsed && parsed.action === "RESET") {
     const empty = { open_positions: [], closed_trades: [], today_pnl: 0.0, today_count: 0 };
     saveLocalJournal(empty);
     renderJournal(empty);
     return { ok: true, message: "已清空本地人工日志" };
   }
-  if (cmd === "ENTRY") {
-    if (parts.length < 4) return { ok: false, message: "用法：ENTRY <signal_id> <price> <shares> [stop] [SOXL|SOXS]" };
-    const sigId = parts[1];
-    const price = Number(parts[2]);
-    const shares = Number(parts[3]);
-    if (!(price > 0 && shares > 0)) return { ok: false, message: "价格与股数必须大于 0" };
-    const symGuess = (parts[5] || (sigId.toUpperCase().indexOf("SOXS") >= 0 ? "SOXS" : state.symbol || "SOXL")).toUpperCase();
-    const stopPrice = parts[4] ? Number(parts[4]) : Number((price * 0.985).toFixed(4));
-    const rUnit = Math.max(0.01, price - stopPrice);
+
+  if (parsed && parsed.action === "ENTRY") {
+    let price = parsed.price;
+    const shares = parsed.shares;
+    const symGuess = (parsed.symbol || (state.symbol === "BTCUSD" ? "BTCUSD" : (state.symbol || "SOXL"))).toUpperCase();
+    if (!price || !(price > 0)) {
+      const liveP = Number((((state.latest || {}).symbols || {})[symGuess] || {}).last_price);
+      if (liveP > 0) price = liveP;
+    }
+    if (!(price > 0 && shares > 0)) return { ok: false, message: "价格与数量必须大于 0" };
+
+    const isBtc = (symGuess === "BTCUSD" || symGuess === "BTC");
+    let stopPrice = parsed.stop;
+    if (!stopPrice || !(stopPrice > 0)) {
+      // 0.80% minimum stop distance rule for BTCUSD, 1.5% for stocks
+      stopPrice = isBtc ? Number((price * 0.992).toFixed(2)) : Number((price * 0.985).toFixed(4));
+    }
+    const rUnit = Math.max(isBtc ? 0.01 : 0.01, price - stopPrice);
+    const takeProfit = Number((price + 4.5 * rUnit).toFixed(isBtc ? 2 : 4));
+    const sigId = parsed.signal_id || ("MANUAL-" + symGuess + "-" + Date.now().toString().slice(-4));
+    const stratName = isBtc ? "A+F_Wide(0.8%)+Macro" : "V0.5_MANUAL";
+
     j.open_positions = [{
       signal_id: sigId,
       symbol: symGuess,
-      strategy: "V0.5_MANUAL",
+      strategy: stratName,
       shares: shares,
-      entry_price: price,
+      entry_price: isBtc ? Number(price.toFixed(2)) : price,
       stop_loss: stopPrice,
-      take_profit: Number((price + 4.5 * rUnit).toFixed(4)),
+      take_profit: takeProfit,
       entry_utc: nowIso,
       max_mfe_r: 0,
     }];
     saveLocalJournal(j);
     renderJournal(j);
-    return { ok: true, message: "已记录人工持仓：" + symGuess + " " + shares + " 股 @ $" + price.toFixed(3) };
+    const sharesStr = fmtShares(shares, symGuess);
+    return {
+      ok: true,
+      message: "已记录人工持仓：" + symGuess + " " + sharesStr + " @ $" + fmtPrice(price, symGuess) +
+        "（止损 $" + fmtPrice(stopPrice, symGuess) + " / 4.5R目标 $" + fmtPrice(takeProfit, symGuess) + "）"
+    };
   }
-  if (cmd === "STOP") {
+
+  if (parsed && parsed.action === "STOP") {
     if (!j.open_positions.length) return { ok: false, message: "当前无持仓可修改止损" };
-    const newStop = Number(parts[1]);
+    const newStop = parsed.price;
     if (!(newStop > 0)) return { ok: false, message: "用法：STOP <price>" };
+    const sym = j.open_positions[0].symbol;
     j.open_positions[0].stop_loss = newStop;
     saveLocalJournal(j);
     renderJournal(j);
-    return { ok: true, message: "已更新人工止损至 $" + newStop.toFixed(3) };
+    return { ok: true, message: "已更新人工止损至 $" + fmtPrice(newStop, sym) };
   }
-  if (cmd === "EXIT" || cmd === "FLAT") {
+
+  if (parsed && parsed.action === "EXIT") {
     if (!j.open_positions.length) return { ok: false, message: "当前无持仓可平仓" };
     const pos = j.open_positions.shift();
-    const priceArg = cmd === "FLAT" ? Number(parts[1]) : Number(parts[2] ?? parts[1]);
     const livePrice = Number((((state.latest || {}).symbols || {})[pos.symbol] || {}).last_price);
-    const exitPrice = (Number.isFinite(priceArg) && priceArg > 0) ? priceArg : (livePrice > 0 ? livePrice : pos.entry_price);
+    const exitPrice = (Number.isFinite(parsed.price) && parsed.price > 0)
+      ? parsed.price
+      : (livePrice > 0 ? livePrice : pos.entry_price);
     const pnl = (exitPrice - pos.entry_price) * pos.shares;
     const rUnit = Math.max(1e-9, pos.entry_price - pos.stop_loss);
     j.closed_trades.push({
@@ -755,7 +1092,7 @@ function handleLocalCommand(line) {
       exit_price: exitPrice,
       entry_utc: pos.entry_utc,
       exit_utc: nowIso,
-      exit_reason: cmd === "FLAT" ? "MANUAL_FLAT" : "MANUAL_EXIT",
+      exit_reason: "MANUAL_EXIT",
       pnl: Number(pnl.toFixed(2)),
       r_multiple: Number(((exitPrice - pos.entry_price) / rUnit).toFixed(3)),
     });
@@ -763,9 +1100,22 @@ function handleLocalCommand(line) {
     j.today_count = j.closed_trades.length;
     saveLocalJournal(j);
     renderJournal(j);
-    return { ok: true, message: "已记录平仓：" + pos.symbol + " @ $" + exitPrice.toFixed(3) + " (" + money(pnl) + ")" };
+    return { ok: true, message: "已记录平仓：" + pos.symbol + " @ $" + fmtPrice(exitPrice, pos.symbol) + " (" + money(pnl) + ")" };
   }
-  return { ok: false, message: "支持命令：ENTRY <id> <price> <shares> / STOP <price> / EXIT <price> / FLAT / RESET" };
+
+  // Fallback to legacy raw command handling if needed
+  const parts = line.trim().split(/\s+/);
+  const cmd = (parts[0] || "").toUpperCase();
+  if (cmd === "RESET") {
+    const empty = { open_positions: [], closed_trades: [], today_pnl: 0.0, today_count: 0 };
+    saveLocalJournal(empty);
+    renderJournal(empty);
+    return { ok: true, message: "已清空本地人工日志" };
+  }
+  return {
+    ok: false,
+    message: "支持命令：买 BTCUSD 0.1 @ 75400 / ENTRY <id> <price> <shares> / STOP <price> / 卖出 / 平仓 / RESET"
+  };
 }
 
 async function submitCommand() {
@@ -1280,22 +1630,30 @@ function fmtDate(ms) {
 }
 
 async function loadCandles() {
-  const ext = state.showExtended ? extBarsFor(chart.symbol, chart.interval) : null;
-  if (ext && ext.length) {
-    chart.bars = ext;
-    chart.extMode = true;
-    chart.lastPrice = ext[ext.length - 1].c;
-    $("chartSymbol").textContent = chart.symbol;
-    drawChart();
-    return;
+  if (chart.symbol === "BTCUSD") {
+    chart.extMode = false;
+  } else {
+    const ext = state.showExtended ? extBarsFor(chart.symbol, chart.interval) : null;
+    if (ext && ext.length) {
+      chart.bars = ext;
+      chart.extMode = true;
+      chart.lastPrice = ext[ext.length - 1].c;
+      $("chartSymbol").textContent = chart.symbol;
+      const noteEl = document.querySelector(".chart-toolbar .symbol span");
+      if (noteEl) noteEl.textContent = "· 本地实时 IEX";
+      drawChart();
+      return;
+    }
+    chart.extMode = false;
   }
-  chart.extMode = false;
   const tf = tfApi(chart.interval);
   if (state.staticMode && state.staticBundle && state.staticBundle.candles) {
     const symCandles = (state.staticBundle.candles[chart.symbol] || {})[tf] || [];
     chart.bars = symCandles;
     chart.lastPrice = chart.bars.length ? chart.bars[chart.bars.length - 1].c : null;
     $("chartSymbol").textContent = chart.symbol;
+    const noteEl = document.querySelector(".chart-toolbar .symbol span");
+    if (noteEl) noteEl.textContent = chart.symbol === "BTCUSD" ? "· Alpaca Crypto 24/7 全天候现货" : "· 本地实时 IEX";
     drawChart();
     return;
   }
@@ -1305,6 +1663,8 @@ async function loadCandles() {
     chart.bars = data.bars || [];
     chart.lastPrice = chart.bars.length ? chart.bars[chart.bars.length - 1].c : null;
     $("chartSymbol").textContent = chart.symbol;
+    const noteEl = document.querySelector(".chart-toolbar .symbol span");
+    if (noteEl) noteEl.textContent = chart.symbol === "BTCUSD" ? "· Alpaca Crypto 24/7 全天候现货" : "· 本地实时 IEX";
     drawChart();
   } catch (err) {
     if (state.staticBundle && state.staticBundle.candles) {
@@ -1312,6 +1672,8 @@ async function loadCandles() {
       chart.bars = symCandles;
       chart.lastPrice = chart.bars.length ? chart.bars[chart.bars.length - 1].c : null;
       $("chartSymbol").textContent = chart.symbol;
+      const noteEl = document.querySelector(".chart-toolbar .symbol span");
+      if (noteEl) noteEl.textContent = chart.symbol === "BTCUSD" ? "· Alpaca Crypto 24/7 全天候现货" : "· 本地实时 IEX";
       drawChart();
       return;
     }
@@ -1338,13 +1700,15 @@ function drawChart() {
   const empty = $("chartEmpty");
   if (!bars.length) {
     empty.style.display = "flex";
-    empty.textContent = "等待实时行情…（IEX 数据稀疏时 1m bar 需要成交才会生成）";
+    empty.textContent = chart.symbol === "BTCUSD"
+      ? "等待 BTC/USD 实时行情…（24/7 Alpaca Crypto 数据）"
+      : "等待实时行情…（IEX 数据稀疏时 1m bar 需要成交才会生成）";
     $("chartLegend").textContent = chart.symbol + " · " + (chart.interval === "D" ? "日K" : chart.interval + "m") + " · 无数据";
     return;
   }
   empty.style.display = "none";
 
-  const padL = 8, padR = 64, padT = 12, padB = 26;
+  const padL = 8, padR = 74, padT = 12, padB = 26;
   const volH = Math.min(70, h * 0.16);
   const top = padT, bottom = h - padB - volH - 8;
   const plotW = w - padL - padR;
@@ -1389,7 +1753,8 @@ function drawChart() {
     ctx.strokeStyle = "rgba(255,255,255,0.055)";
     ctx.beginPath(); ctx.moveTo(padL, y); ctx.lineTo(w - padR, y); ctx.stroke();
     ctx.fillStyle = "#8b95a7";
-    ctx.fillText(price.toFixed(2), w - padR + 6, y + 3);
+    const priceStr = chart.symbol === "BTCUSD" ? fmt(price, 2) : price.toFixed(2);
+    ctx.fillText(priceStr, w - padR + 6, y + 3);
   }
 
   // PM_High / PM_Low reference lines (extended-hours replay)
@@ -1455,7 +1820,8 @@ function drawChart() {
     ctx.fillRect(w - padR + 2, y - 8, padR - 4, 16);
     ctx.fillStyle = "#0b0e14";
     ctx.font = "bold 10px Consolas, monospace";
-    ctx.fillText(last.c.toFixed(2), w - padR + 5, y + 3);
+    const lastStr = chart.symbol === "BTCUSD" ? fmt(last.c, 2) : last.c.toFixed(2);
+    ctx.fillText(lastStr, w - padR + 5, y + 3);
   }
 
   // x labels
@@ -1469,12 +1835,17 @@ function drawChart() {
     ctx.fillText(text, x, h - 8);
   }
 
-  // V0.4 replay markers (ENTRY / STOP / BREAKEVEN / TARGET / EXIT)
+  // V0.4 / V0.5 / BTC markers (ENTRY / STOP / BREAKEVEN / TARGET / EXIT / TIME_6H)
   const markerColors = {
     ENTRY: "#00e676", STOP: "#ff5252", BREAKEVEN: "#facc15", TARGET: "#facc15",
     EXIT: "#22d3ee", LADDER_STOP: "#60a5fa", TRAIL_LOCK: "#60a5fa",
     SHIELD_STOP: "#22d3ee", EXT_END_EXIT: "#fb923c", EOD_EXIT: "#fb923c",
+    TIME_6H: "#e879f9",
   };
+  const btcMarkers = (chart.symbol === "BTCUSD")
+    ? (((state.latest && state.latest.btc && state.latest.btc.markers) || [])
+        .concat((state.staticBundle && state.staticBundle.btc && state.staticBundle.btc.markers) || []))
+    : [];
   const extMarkers = chart.extMode && state.extended
     ? ((state.extended.markers || state.extended.signals || [])
         .filter((s) => s.symbol === chart.symbol)
@@ -1482,7 +1853,7 @@ function drawChart() {
     : [];
   const markerList = ((state.replay && state.replay.markers) || []).concat(
     (state.latest && state.latest.v04 && state.latest.v04.markers) || []
-  ).concat(extMarkers);
+  ).concat(btcMarkers).concat(extMarkers);
   let drawn = 0;
   for (const marker of markerList) {
     const sym = String(marker.symbol || "").toUpperCase();
@@ -1496,10 +1867,9 @@ function drawChart() {
     const rawTime = marker.t ?? marker.time_utc ?? marker.ts_utc ?? marker.time;
     const t = typeof rawTime === "number" ? rawTime : Date.parse(String(rawTime || ""));
     if (!Number.isFinite(t)) continue;
-    // Snap to the latest candle bucket <= marker time (works for 1m/5m/15m/EXT 5m).
     let idx = -1;
     for (let i = bars.length - 1; i >= 0; i--) { if (bars[i].t <= t) { idx = i; break; } }
-    if (idx < 0) idx = 0;  // marker before first visible bar -> first bar, never silently drop
+    if (idx < 0) idx = 0;
     if (!bars[idx]) continue;
     const x = padL + slot * idx + slot / 2;
     const y = yOf(price);
@@ -1510,10 +1880,11 @@ function drawChart() {
       ctx.beginPath(); ctx.arc(x, y, 5, 0, Math.PI * 2); ctx.stroke();
     } else if (type === "BREAKEVEN") {
       ctx.beginPath(); ctx.moveTo(x, y - 5); ctx.lineTo(x + 5, y); ctx.lineTo(x, y + 5); ctx.lineTo(x - 5, y); ctx.closePath(); ctx.stroke();
+    } else if (type === "TIME_6H") {
+      ctx.beginPath(); ctx.moveTo(x, y - 6); ctx.lineTo(x + 6, y); ctx.lineTo(x, y + 6); ctx.lineTo(x - 6, y); ctx.closePath(); ctx.fill();
     } else if (type === "EXT_END_EXIT" || type === "EOD_EXIT" || type === "EXIT") {
       ctx.strokeRect(x - 4, y - 4, 8, 8);
     } else {
-      // STOP / TRAIL_LOCK / LADDER_STOP / SHIELD_STOP -> down triangle
       ctx.beginPath(); ctx.moveTo(x, y + 9); ctx.lineTo(x - 6, y + 1); ctx.lineTo(x + 6, y + 1); ctx.closePath(); ctx.fill();
     }
     const alwaysLabel = type !== "ENTRY";
@@ -1543,17 +1914,22 @@ function drawChart() {
   const markerSummary = visibleMarkers.length
     ? " · 标记 " + visibleMarkers.length + " 个 · ENTRY " + entryCount + " · EXIT " + exitCount + typeDetail
     : "";
+  const priceDisplay = chart.symbol === "BTCUSD" ? (last ? "$" + fmt(last.c, 2) : "—") : (last ? "$" + last.c.toFixed(3) : "—");
+  const sourceStr = chart.symbol === "BTCUSD" ? " · Alpaca Crypto 24/7" : " · IEX 实时";
+  const timeZoneStr = chart.symbol === "BTCUSD" ? " UTC" : " ET";
   $("chartLegend").textContent =
     chart.symbol + " · " + (chart.interval === "D" ? "日K" : chart.interval + "m") +
-    " · IEX 实时 · 最新 " + (last ? last.c.toFixed(3) : "—") +
+    sourceStr + " · 最新 " + priceDisplay +
     " · " + (chart.interval === "D" ? fmtDate(last ? last.t : Date.now()) : fmtTime(last ? last.t : Date.now())) +
-    " ET · " + bars.length + " 根" + (chart.extMode ? " · EXT 5m(含盘前盘后)" : "") + (drawn ? " · 标记 " + drawn + " 个" + markerSummary : "");
+    timeZoneStr + " · " + bars.length + " 根" + (chart.extMode ? " · EXT 5m(含盘前盘后)" : "") + (drawn ? " · 标记 " + drawn + " 个" + markerSummary : "");
 }
 
 function setChart() {
   chart.symbol = state.symbol;
   chart.interval = state.interval;
   $("chartSymbol").textContent = chart.symbol;
+  const noteEl = document.querySelector(".chart-toolbar .symbol span");
+  if (noteEl) noteEl.textContent = chart.symbol === "BTCUSD" ? "· Alpaca Crypto 24/7 全天候现货" : "· 本地实时 IEX";
   loadCandles();
 }
 
@@ -1563,6 +1939,10 @@ document.querySelectorAll(".watch-card").forEach((card) => {
     card.classList.add("active");
     state.symbol = card.dataset.symbol;
     setChart();
+    if (state.latest) {
+      renderExecution(state.latest.execution || {}, state.latest.v04 || {});
+      renderRadar(state.latest.radar || {});
+    }
   });
 });
 document.querySelectorAll("#intervalSeg button").forEach((btn) => {
@@ -1608,8 +1988,9 @@ if (extToggle) {
     loadCandles();
   });
 }
-const querySymbol = (new URLSearchParams(location.search).get("symbol") || "").toUpperCase();
-if (querySymbol === "SOXL" || querySymbol === "SOXS") {
+const rawQuery = (new URLSearchParams(location.search).get("symbol") || "").toUpperCase().replace("/", "").replace("-", "");
+const querySymbol = (rawQuery === "BTC" || rawQuery === "BTCUSD") ? "BTCUSD" : rawQuery;
+if (["SOXL", "SOXS", "BTCUSD"].includes(querySymbol)) {
   state.symbol = querySymbol;
   chart.symbol = querySymbol;
   document.querySelectorAll(".watch-card").forEach((card) => {
