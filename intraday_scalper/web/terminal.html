@@ -1546,7 +1546,7 @@ function extBarsFor(symbol, interval) {
   if (!ext || !ext.symbols) return null;
   const bars = ext.symbols[symbol] || [];
   if (!bars.length) return null;
-  if (interval === "D") return null;
+  if (interval === "D" || interval === "1") return null;
   const minutes = interval === "15" ? 15 : 5;
   return aggregateExtBars(bars, minutes);
 }
