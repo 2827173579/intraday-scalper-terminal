@@ -126,6 +126,13 @@ def test_build_execution_card_targets_and_breakeven():
     assert card["breakeven_trigger"] == pytest.approx(101.2)
     assert card["breakeven_stop"] == pytest.approx(100.05)
     assert card["breakeven_state"] == "none"
+    assert card["target_4_5r"] == pytest.approx(104.5)
+    assert card["ladder_1_5r_trigger"] == pytest.approx(101.5)
+    assert card["ladder_1_5r_stop"] == pytest.approx(100.20)
+    assert card["ladder_2_2r_trigger"] == pytest.approx(102.2)
+    assert card["ladder_2_2r_stop"] == pytest.approx(101.20)
+    assert card["ladder_3_0r_trigger"] == pytest.approx(103.0)
+    assert card["ladder_3_0r_stop"] == pytest.approx(102.00)
 
 
 def test_build_execution_card_active_breakeven():

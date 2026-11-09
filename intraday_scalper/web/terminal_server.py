@@ -852,7 +852,7 @@ class SessionTracker:
             book = self.books.get(symbol)
             if book is None:
                 return []
-            day = et_now().date()
+            day = self.current_day
             bars = [bar for bar in book.bars_1m if bar["et_day"] == day]
             if timeframe == "5m":
                 return [bar for bar in aggregate_5m(bars, day) if bar.get("complete")]
@@ -917,6 +917,13 @@ def build_execution_card(snapshot_dict: Dict[str, Any], config: Any = None) -> D
 
     be_trigger = round(entry + 1.2 * (entry - stop), 4) if entry is not None and stop is not None else None
     be_stop = round(entry + 0.05 * (entry - stop), 4) if entry is not None and stop is not None else None
+    target_4_5r = round(entry + 4.5 * (entry - stop), 4) if entry is not None and stop is not None else None
+    ladder_1_5r_trigger = round(entry + 1.5 * (entry - stop), 4) if entry is not None and stop is not None else None
+    ladder_1_5r_stop = round(entry + 0.20 * (entry - stop), 4) if entry is not None and stop is not None else None
+    ladder_2_2r_trigger = round(entry + 2.2 * (entry - stop), 4) if entry is not None and stop is not None else None
+    ladder_2_2r_stop = round(entry + 1.20 * (entry - stop), 4) if entry is not None and stop is not None else None
+    ladder_3_0r_trigger = round(entry + 3.0 * (entry - stop), 4) if entry is not None and stop is not None else None
+    ladder_3_0r_stop = round(entry + 2.00 * (entry - stop), 4) if entry is not None and stop is not None else None
     position_r = _safe_float(position.get("unrealized_r")) if isinstance(position, dict) else None
     if position:
         be_state = "active" if (position_r is not None and position_r >= 1.2) else "holding"
@@ -933,6 +940,7 @@ def build_execution_card(snapshot_dict: Dict[str, Any], config: Any = None) -> D
         "stop": stop,
         "target": target,
         "target_r": target_r,
+        "target_4_5r": target_4_5r,
         "risk_per_share": risk_per_share,
         "shares": shares,
         "actual_risk": actual_risk,
@@ -942,6 +950,12 @@ def build_execution_card(snapshot_dict: Dict[str, Any], config: Any = None) -> D
         "breakeven_trigger": be_trigger,
         "breakeven_stop": be_stop,
         "breakeven_state": be_state,
+        "ladder_1_5r_trigger": ladder_1_5r_trigger,
+        "ladder_1_5r_stop": ladder_1_5r_stop,
+        "ladder_2_2r_trigger": ladder_2_2r_trigger,
+        "ladder_2_2r_stop": ladder_2_2r_stop,
+        "ladder_3_0r_trigger": ladder_3_0r_trigger,
+        "ladder_3_0r_stop": ladder_3_0r_stop,
         "position_r": position_r,
     }
 
@@ -1229,7 +1243,7 @@ class LiveTerminal:
                             "symbol": signal.get("symbol"),
                             "signal_id": f"EXT-{signal.get('symbol')}-{signal.get('type')}-{signal.get('t')}",
                             "message": (
-                                f"{prefix} V0.4 {signal.get('type')} {signal.get('symbol')} "
+                                f"{prefix} V0.5(A+F) {signal.get('type')} {signal.get('symbol')} "
                                 f"entry {signal.get('entry')} / stop {signal.get('stop')} / target {signal.get('target')}"
                             ),
                         }
@@ -1243,7 +1257,7 @@ class LiveTerminal:
         from intraday_scalper.research import v05
 
         current = self.tracker.current_day
-        if current is None or current != et_now().date():
+        if current is None:
             return
         session_records = []
         for symbol in SYMBOLS:
@@ -1289,7 +1303,8 @@ class LiveTerminal:
                         trade_count=0,
                     )
                 )
-        all_bars = list(self._history_bars) + session_bars
+        prior_bars = [b for b in self._history_bars if b.start_utc.astimezone(ET).date() < current]
+        all_bars = prior_bars + session_bars
         trades = v05.evaluate_v05_session(all_bars, current, variant=v05.V05_PRODUCTION_VARIANT)
         markers: List[Dict[str, Any]] = []
         latest_trade: Optional[Dict[str, Any]] = None

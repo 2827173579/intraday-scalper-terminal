@@ -313,7 +313,7 @@
         <div class="chart-legend" id="chartLegend">加载中…</div>
         <div class="chart-empty" id="chartEmpty">加载实时行情…</div>
       </div>
-      <div class="chart-note">本地图表 = Alpaca IEX 实时行情（与左侧卡片同口径，无延迟，1m/5m/15m/日K）。收盘/周末自动回显最近交易日，并标注 V0.4 的 ENTRY / STOP / BREAKEVEN / TARGET。</div>
+      <div class="chart-note">本地图表 = Alpaca IEX 实时行情（与左侧卡片同口径，无延迟，1m/5m/15m/日K）。收盘/周末自动回显最近交易日，并标注 V0.5(A+F) 的 ENTRY / STOP / LADDER_STOP / TARGET / EOD。</div>
     </section>
 
     <!-- 右：日内操盘司令塔 -->
@@ -358,16 +358,16 @@
               <div class="exec-box buy"><div class="k">建议买入价</div><div class="v" id="execEntry">—</div></div>
               <div class="exec-box stop"><div class="k">硬止损价</div><div class="v" id="execStop">—</div></div>
               <div class="exec-box shares"><div class="k">建议股数（B1：风险 $60 / 名义 $10,000）</div><div class="v" id="execShares">—</div></div>
-              <div class="exec-box target"><div class="k">目标止盈价（2R）</div><div class="v" id="execTarget">—</div></div>
+              <div class="exec-box target"><div class="k">目标止盈价（4.5R）</div><div class="v" id="execTarget">—</div></div>
             </div>
             <div class="kv" style="margin-top:8px"><span class="k">信号策略</span><span class="v" id="execStrategy">—</span></div>
             <div class="kv"><span class="k">预估风险 / 名义金额</span><span class="v" id="execRisk">—</span></div>
-            <div class="kv"><span class="k">+1.2R 保本盾</span><span class="v" id="execBreakeven">—</span></div>
+            <div class="kv"><span class="k">V0.5 阶梯锁利 (1.5R/2.2R/3R)</span><span class="v" id="execBreakeven" style="font-size:11px;text-align:right">—</span></div>
             <div class="kv"><span class="k">信号 ID（人工录入用）</span><span class="v" id="execSignalId" style="font-size:11px">—</span></div>
           </div>
           <div id="replayInline" style="margin-top:8px"></div>
           <div class="smc-note" style="margin-top:8px">
-            <b>出场规则</b>：V0.4 只发<b>买入/做多</b>信号（SOXL 看涨、SOXS 看跌半导体）。
+            <b>出场规则</b>：V0.5(A+F) 只发<b>买入/做多</b>信号（SOXL 看涨、SOXS 看跌半导体）。
             <b>卖出 = STOP / TARGET / EOD 自动出场</b>，不是独立的"卖出买入信号"。
             单持仓制，<b>不加仓</b>；连亏 3 笔停 15 分钟、单日 -$320 熔断。
           </div>
@@ -389,7 +389,7 @@
       <article class="card">
         <div class="card-header"><h3>④ 最近交易日复盘 · V0.5(A+F)</h3><span class="badge info" id="replayBadge">等待</span></div>
         <div class="card-body" id="replayBody">
-          <div class="empty">等待 V0.4 复盘数据…<br>（运行 run_v04_backtest 后自动载入周五行情与信号）</div>
+          <div class="empty">等待 V0.5(A+F) 复盘数据…<br>（自动载入最近交易日行情与 V0.5 阶梯锁利信号）</div>
         </div>
       </article>
     </section>
@@ -397,7 +397,7 @@
 </div>
 
 <script>
-const state = { symbol: "SOXL", interval: "1", latest: null, timer: null, replay: null, extended: null, showExtended: true };
+const state = { symbol: "SOXL", interval: "1", latest: null, timer: null, replay: null, extended: null, showExtended: true, staticMode: (location.hostname.endsWith("github.io") || location.protocol === "file:" || Boolean(window.__STATIC_BUNDLE__)), staticBundle: window.__STATIC_BUNDLE__ || null };
 const $ = (id) => document.getElementById(id);
 
 function fmt(n, digits = 2) {
@@ -486,9 +486,33 @@ function renderRisk(risk) {
   else { badge.className = "badge ok"; badge.textContent = "可交易"; }
 }
 
+function buildLadderGuide(entry, stop, maxMfeR, stopKind) {
+  const e = Number(entry || 0), s = Number(stop || 0);
+  const r = e - s;
+  if (!(e > 0 && s > 0 && r > 0)) return { target45: null, html: "—", cls: "v flat" };
+  const target45 = e + 4.5 * r;
+  const t15 = e + 1.5 * r, l15 = e + 0.20 * r;
+  const t22 = e + 2.2 * r, l22 = e + 1.20 * r;
+  const t30 = e + 3.0 * r, l30 = e + 2.00 * r;
+  const mfe = Number(maxMfeR || 0);
+  const kind = String(stopKind || "").toUpperCase();
+  let status = "待触发 +1.5R";
+  let clsName = "v flat";
+  if (kind === "TARGET" || mfe >= 4.5) { status = "已达 +4.5R 止盈目标"; clsName = "v up"; }
+  else if (kind === "LADDER_3R" || mfe >= 3.0) { status = "已锁三档 +2.00R ($" + fmt(l30, 2) + ")"; clsName = "v up"; }
+  else if (kind === "LADDER_2.2R" || mfe >= 2.2) { status = "已锁二档 +1.20R ($" + fmt(l22, 2) + ")"; clsName = "v up"; }
+  else if (kind === "LADDER_1.5R" || mfe >= 1.5) { status = "已锁一档 +0.20R ($" + fmt(l15, 2) + ")"; clsName = "v up"; }
+  const detail = "1.5R($" + fmt(t15, 2) + ")→$" + fmt(l15, 2) +
+    " ｜ 2.2R($" + fmt(t22, 2) + ")→$" + fmt(l22, 2) +
+    " ｜ 3R($" + fmt(t30, 2) + ")→$" + fmt(l30, 2);
+  return { target45: target45, html: status + "<br><span style='color:var(--muted);font-size:10px'>" + detail + "</span>", cls: clsName };
+}
+
 function renderExecution(exec, v04) {
   const badge = $("execBadge");
-  const trade = v04 && v04.latest_trade;
+  const replayV05Trades = (((((state.replay || {}).recap || {}).versions || {})["V0.5"] || {}).trades) || [];
+  const fallbackTrade = replayV05Trades.length ? replayV05Trades[replayV05Trades.length - 1] : null;
+  const trade = (v04 && v04.latest_trade) || fallbackTrade;
   if (!exec.has_signal && !trade) {
     $("execEmpty").style.display = "block";
     $("execGrid").style.display = "none";
@@ -497,66 +521,115 @@ function renderExecution(exec, v04) {
   }
   if (!exec.has_signal && trade) {
     const entry = Number(trade.entry_price_fill ?? trade.entry_price ?? trade.entry ?? 0);
-    const stop = Number(trade.stop_price ?? trade.stop ?? 0);
-    const target = Number(trade.target_price ?? trade.target ?? 0);
+    const stop = Number(trade.stop_price ?? trade.initial_stop_price ?? trade.stop ?? 0);
+    const ladder = buildLadderGuide(entry, stop, trade.max_mfe_r, trade.exit_stop_kind);
+    const target = Number(trade.target_price ?? trade.target ?? ladder.target45 ?? 0);
     const shares = Number(trade.shares ?? 0);
-    const risk = (entry - stop) * shares;
+    const risk = Math.max(0, entry - stop) * shares;
     $("execEmpty").style.display = "none";
     $("execGrid").style.display = "block";
     badge.className = "badge accent";
-    badge.textContent = "V0.4 · " + (trade.symbol || "") + " · " + (trade.exit_reason || "OPEN");
+    badge.textContent = "V0.5(A+F) · " + (trade.symbol || "") + " · " + (trade.exit_reason || "OPEN");
     $("execEntry").textContent = "$" + fmt(entry, 3);
     $("execStop").textContent = "$" + fmt(stop, 3);
     $("execShares").textContent = shares ? fmt(shares, 2) + " 股" : "—";
     $("execTarget").textContent = target ? "$" + fmt(target, 3) : "—";
-    $("execStrategy").textContent = (trade.strategy || "") + (trade.exit_reason_detail ? " · " + trade.exit_reason_detail : "");
+    const stratLabel = trade.strategy_label || trade.strategy || "";
+    const stopKind = trade.exit_stop_kind ? " · " + trade.exit_stop_kind : "";
+    $("execStrategy").textContent = stratLabel + stopKind;
     $("execRisk").textContent = "$" + fmt(risk, 2) + " / " + (trade.pnl !== undefined ? "PnL " + money(trade.pnl) : "—");
     const be = $("execBreakeven");
-    if (trade.scale_target_hit) {
-      be.textContent = "已触发 +1.2R 分批（剩半仓保本博 2R）";
-      be.className = "v up";
-    } else {
-      be.textContent = "未触发（+1.2R）";
-      be.className = "v flat";
-    }
-    $("execSignalId").textContent = trade.trade_id || "—";
+    be.innerHTML = ladder.html;
+    be.className = ladder.cls;
+    $("execSignalId").textContent = trade.trade_id || trade.signal_id || "—";
     return;
   }
+  const ladder = buildLadderGuide(exec.entry, exec.stop, exec.position_r, null);
+  const targetPrice = exec.target_4_5r ?? ladder.target45 ?? exec.target;
   $("execEmpty").style.display = "none";
   $("execGrid").style.display = "block";
-  badge.className = "badge accent"; badge.textContent = "ENTRY · " + (exec.symbol || "");
+  badge.className = "badge accent"; badge.textContent = "V0.5 ENTRY · " + (exec.symbol || "");
   $("execEntry").textContent = "$" + fmt(exec.entry, 3);
   $("execStop").textContent = "$" + fmt(exec.stop, 3);
   $("execShares").textContent = exec.shares === null || exec.shares === undefined ? "—" : fmt(exec.shares, 2) + " 股";
-  $("execTarget").textContent = exec.target === null || exec.target === undefined ? "—" : "$" + fmt(exec.target, 3);
+  $("execTarget").textContent = targetPrice === null || targetPrice === undefined ? "—" : "$" + fmt(targetPrice, 3);
   $("execStrategy").textContent = exec.strategy || "—";
   $("execRisk").textContent = "$" + fmt(exec.actual_risk, 2) + " / $" + fmt(exec.notional, 2);
   $("execSignalId").textContent = exec.signal_id || "—";
   const be = $("execBreakeven");
-  if (exec.breakeven_state === "active") {
-    be.textContent = "已激活 · 上移至 $" + fmt(exec.breakeven_stop, 3);
-    be.className = "v up";
-  } else if (exec.breakeven_state === "holding") {
-    be.textContent = "持仓中 · 触发价 $" + fmt(exec.breakeven_trigger, 3);
-    be.className = "v";
-  } else {
-    be.textContent = "未激活（+1.2R 触发）";
-    be.className = "v flat";
+  be.innerHTML = ladder.html;
+  be.className = ladder.cls;
+}
+
+const LOCAL_JOURNAL_KEY = "scalper_local_journal_v1";
+const localLadderAlerts = {};
+
+function loadLocalJournal() {
+  try {
+    const raw = localStorage.getItem(LOCAL_JOURNAL_KEY);
+    if (!raw) return { open_positions: [], closed_trades: [], today_pnl: 0.0, today_count: 0 };
+    const parsed = JSON.parse(raw);
+    return {
+      open_positions: Array.isArray(parsed.open_positions) ? parsed.open_positions : [],
+      closed_trades: Array.isArray(parsed.closed_trades) ? parsed.closed_trades : [],
+      today_pnl: Number(parsed.today_pnl || 0),
+      today_count: Number(parsed.today_count || 0),
+    };
+  } catch (err) {
+    return { open_positions: [], closed_trades: [], today_pnl: 0.0, today_count: 0 };
   }
 }
 
+function saveLocalJournal(j) {
+  try { localStorage.setItem(LOCAL_JOURNAL_KEY, JSON.stringify(j)); } catch (err) { /* ignore */ }
+}
+
+function mergedJournal(serverJournal) {
+  const local = loadLocalJournal();
+  const srvPos = (serverJournal && serverJournal.open_positions) || [];
+  const srvTrades = (serverJournal && serverJournal.closed_trades) || [];
+  if (srvPos.length || srvTrades.length) return serverJournal;
+  return local;
+}
+
 function renderJournal(journal) {
-  const positions = (journal && journal.open_positions) || [];
-  const trades = (journal && journal.closed_trades) || [];
+  const activeJournal = mergedJournal(journal);
+  const positions = (activeJournal && activeJournal.open_positions) || [];
+  const trades = (activeJournal && activeJournal.closed_trades) || [];
   const posBox = $("positionBox");
   if (positions.length) {
-    posBox.innerHTML = positions.map((p, i) =>
-      '<div class="pos-line">持仓 ' + (i + 1) + '：<b>' + p.symbol + '</b> ' + fmt(p.shares, 2) +
-      " 股 @ $" + fmt(p.entry_price, 3) + " ｜ 止损 $" + fmt(p.stop_loss, 3) +
-      " ｜ 目标 $" + fmt(p.take_profit, 3) + " ｜ " + (p.strategy || "") + "</div>"
-    ).join("");
+    posBox.innerHTML = positions.map((p, i) => {
+      const sym = String(p.symbol || "SOXL").toUpperCase();
+      const entry = Number(p.entry_price || 0);
+      const stop = Number(p.stop_loss || 0);
+      const rUnit = Math.max(0, entry - stop);
+      const target = Number(p.take_profit || (rUnit > 0 ? entry + 4.5 * rUnit : 0));
+      const livePrice = Number((((state.latest || {}).symbols || {})[sym] || {}).last_price);
+      const curR = (Number.isFinite(livePrice) && livePrice > 0 && rUnit > 0) ? (livePrice - entry) / rUnit : null;
+      const mfeR = Math.max(Number(p.max_mfe_r || 0), curR !== null ? curR : 0);
+      p.max_mfe_r = mfeR;
+      let recStop = stop;
+      let tierText = "初始止损 (-1.0R)";
+      if (rUnit > 0) {
+        if (mfeR >= 3.0) { recStop = entry + 2.00 * rUnit; tierText = "三档锁利 (+2.00R)"; }
+        else if (mfeR >= 2.2) { recStop = entry + 1.20 * rUnit; tierText = "二档锁利 (+1.20R)"; }
+        else if (mfeR >= 1.5) { recStop = entry + 0.20 * rUnit; tierText = "一档锁利 (+0.20R)"; }
+      }
+      const alertKey = (p.signal_id || sym) + "|" + tierText;
+      if (mfeR >= 1.5 && !localLadderAlerts[alertKey]) {
+        localLadderAlerts[alertKey] = true;
+        showBanner("TAKE_PROFIT_HINT", "人工持仓 " + sym + " 已达 +" + mfeR.toFixed(2) + "R，请将券商止损单上移至 $" + fmt(recStop, 3) + " (" + tierText + ")", sym, false);
+      }
+      const livePnl = (Number.isFinite(livePrice) && livePrice > 0) ? (livePrice - entry) * Number(p.shares || 0) : null;
+      const liveStr = curR !== null
+        ? (" ｜ 浮盈 <b class='" + cls(livePnl) + "'>" + money(livePnl) + " (" + (curR >= 0 ? "+" : "") + curR.toFixed(2) + "R)</b>")
+        : "";
+      return '<div class="pos-line">持仓 ' + (i + 1) + '：<b>' + sym + '</b> ' + fmt(p.shares, 2) +
+        " 股 @ $" + fmt(entry, 3) + liveStr +
+        "<br>当前应挂止损：<b style='color:var(--yellow)'>$" + fmt(recStop, 3) + " (" + tierText + ")</b> ｜ 4.5R目标 $" + fmt(target, 3) + "</div>";
+    }).join("");
   } else {
-    posBox.innerHTML = '<div class="pos-line">当前无持仓（系统只记录人工确认的成交）</div>';
+    posBox.innerHTML = '<div class="pos-line">当前无持仓（支持输入 ENTRY &lt;ID&gt; &lt;价格&gt; &lt;股数&gt; 实时跟踪 V0.5 阶梯移损）</div>';
   }
 
   const table = $("tradeTable");
@@ -577,26 +650,108 @@ function renderJournal(journal) {
     rows + "</tbody></table>";
 }
 
+function handleLocalCommand(line) {
+  const parts = line.trim().split(/\s+/);
+  const cmd = (parts[0] || "").toUpperCase();
+  const j = loadLocalJournal();
+  const nowIso = new Date().toISOString();
+  if (cmd === "RESET") {
+    const empty = { open_positions: [], closed_trades: [], today_pnl: 0.0, today_count: 0 };
+    saveLocalJournal(empty);
+    renderJournal(empty);
+    return { ok: true, message: "已清空本地人工日志" };
+  }
+  if (cmd === "ENTRY") {
+    if (parts.length < 4) return { ok: false, message: "用法：ENTRY <signal_id> <price> <shares> [stop] [SOXL|SOXS]" };
+    const sigId = parts[1];
+    const price = Number(parts[2]);
+    const shares = Number(parts[3]);
+    if (!(price > 0 && shares > 0)) return { ok: false, message: "价格与股数必须大于 0" };
+    const symGuess = (parts[5] || (sigId.toUpperCase().indexOf("SOXS") >= 0 ? "SOXS" : state.symbol || "SOXL")).toUpperCase();
+    const stopPrice = parts[4] ? Number(parts[4]) : Number((price * 0.985).toFixed(4));
+    const rUnit = Math.max(0.01, price - stopPrice);
+    j.open_positions = [{
+      signal_id: sigId,
+      symbol: symGuess,
+      strategy: "V0.5_MANUAL",
+      shares: shares,
+      entry_price: price,
+      stop_loss: stopPrice,
+      take_profit: Number((price + 4.5 * rUnit).toFixed(4)),
+      entry_utc: nowIso,
+      max_mfe_r: 0,
+    }];
+    saveLocalJournal(j);
+    renderJournal(j);
+    return { ok: true, message: "已记录人工持仓：" + symGuess + " " + shares + " 股 @ $" + price.toFixed(3) };
+  }
+  if (cmd === "STOP") {
+    if (!j.open_positions.length) return { ok: false, message: "当前无持仓可修改止损" };
+    const newStop = Number(parts[1]);
+    if (!(newStop > 0)) return { ok: false, message: "用法：STOP <price>" };
+    j.open_positions[0].stop_loss = newStop;
+    saveLocalJournal(j);
+    renderJournal(j);
+    return { ok: true, message: "已更新人工止损至 $" + newStop.toFixed(3) };
+  }
+  if (cmd === "EXIT" || cmd === "FLAT") {
+    if (!j.open_positions.length) return { ok: false, message: "当前无持仓可平仓" };
+    const pos = j.open_positions.shift();
+    const priceArg = cmd === "FLAT" ? Number(parts[1]) : Number(parts[2] ?? parts[1]);
+    const livePrice = Number((((state.latest || {}).symbols || {})[pos.symbol] || {}).last_price);
+    const exitPrice = (Number.isFinite(priceArg) && priceArg > 0) ? priceArg : (livePrice > 0 ? livePrice : pos.entry_price);
+    const pnl = (exitPrice - pos.entry_price) * pos.shares;
+    const rUnit = Math.max(1e-9, pos.entry_price - pos.stop_loss);
+    j.closed_trades.push({
+      signal_id: pos.signal_id,
+      symbol: pos.symbol,
+      strategy: pos.strategy,
+      shares: pos.shares,
+      entry_price: pos.entry_price,
+      exit_price: exitPrice,
+      entry_utc: pos.entry_utc,
+      exit_utc: nowIso,
+      exit_reason: cmd === "FLAT" ? "MANUAL_FLAT" : "MANUAL_EXIT",
+      pnl: Number(pnl.toFixed(2)),
+      r_multiple: Number(((exitPrice - pos.entry_price) / rUnit).toFixed(3)),
+    });
+    j.today_pnl = Number(j.closed_trades.reduce((acc, t) => acc + Number(t.pnl || 0), 0).toFixed(2));
+    j.today_count = j.closed_trades.length;
+    saveLocalJournal(j);
+    renderJournal(j);
+    return { ok: true, message: "已记录平仓：" + pos.symbol + " @ $" + exitPrice.toFixed(3) + " (" + money(pnl) + ")" };
+  }
+  return { ok: false, message: "支持命令：ENTRY <id> <price> <shares> / STOP <price> / EXIT <price> / FLAT / RESET" };
+}
+
 async function submitCommand() {
   const input = $("cmdInput");
   const line = (input.value || "").trim();
   if (!line) return;
   $("cmdMsg").textContent = "提交中…";
-  try {
-    const resp = await fetch("/api/command", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ line: line }),
-    });
-    const data = await resp.json();
-    $("cmdMsg").textContent = (data.ok ? "✅ " : "❌ ") + data.message;
-    if (data.ok && data.message && data.message.indexOf("已") === 0) {
-      input.value = "";
-      setTimeout(poll, 400);
-    }
-  } catch (err) {
-    $("cmdMsg").textContent = "❌ 提交失败：" + err;
+  if (!state.staticMode) {
+    try {
+      const resp = await fetch("/api/command", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ line: line }),
+      });
+      if (resp.ok) {
+        const data = await resp.json();
+        if (data.message && String(data.message).indexOf("DATA_UNAVAILABLE") < 0) {
+          $("cmdMsg").textContent = (data.ok ? "✅ " : "❌ ") + data.message;
+          if (data.ok && data.message && data.message.indexOf("已") === 0) {
+            input.value = "";
+            setTimeout(poll, 400);
+          }
+          return;
+        }
+      }
+    } catch (err) { /* fallback to browser localStorage journal */ }
   }
+  const localRes = handleLocalCommand(line);
+  $("cmdMsg").textContent = (localRes.ok ? "✅ " : "❌ ") + localRes.message;
+  if (localRes.ok) input.value = "";
 }
 document.getElementById("cmdBtn").addEventListener("click", submitCommand);
 document.getElementById("cmdInput").addEventListener("keydown", (ev) => {
@@ -727,11 +882,19 @@ function updateSoundButton() {
 }
 
 async function loadReplay() {
+  if (state.staticBundle && state.staticBundle.replay) {
+    state.replay = state.staticBundle.replay;
+    renderReplay(state.replay);
+    if (state.latest) renderExecution(state.latest.execution || {}, state.latest.v04 || {});
+    drawChart();
+    if (state.staticMode) return;
+  }
   try {
     const resp = await fetch("/api/replay", { cache: "no-store" });
     if (!resp.ok) return;
     state.replay = await resp.json();
     renderReplay(state.replay);
+    if (state.latest) renderExecution(state.latest.execution || {}, state.latest.v04 || {});
     drawChart();
   } catch (err) { /* replay is optional */ }
 }
@@ -769,7 +932,7 @@ function renderReplay(replay) {
   if (rows) {
     html += '<table class="trade-table" style="margin-top:6px"><thead><tr><th>版本</th><th>笔数</th><th>净盈亏</th><th>PF</th></tr></thead><tbody>' + rows + "</tbody></table>";
   } else {
-    html += '<div class="empty" style="padding:8px 0">等待 V0.4 复盘数据（运行 run_v04_backtest 后自动载入）</div>';
+    html += '<div class="empty" style="padding:8px 0">等待 V0.5(A+F) 复盘数据</div>';
   }
   if (markers.length) {
     html += '<div class="pos-line" style="margin-top:7px">图上标记：ENTRY 绿▲ / STOP 红▼ / TARGET 蓝○ / BREAKEVEN 黄◇ / EXIT 青□ · 共 ' + markers.length + " 个</div>";
@@ -906,16 +1069,59 @@ function applyState(s) {
   checkAlerts(s.events || []);
 }
 
+function applyStaticBundle(bundle) {
+  if (!bundle) return;
+  state.staticBundle = bundle;
+  if (bundle.replay) {
+    state.replay = bundle.replay;
+    renderReplay(state.replay);
+  }
+  if (bundle.extended) {
+    state.extended = bundle.extended;
+    renderExtended();
+  }
+  if (bundle.state) {
+    applyState(bundle.state);
+  }
+  const sessionDate = (bundle.replay && bundle.replay.session_date) || (bundle.extended && bundle.extended.session_date) || "";
+  $("connPill").className = "pill ok";
+  $("connText").classList.remove("pulse");
+  $("connText").textContent = "GitHub 云端快照" + (sessionDate ? (" · " + sessionDate) : "");
+  loadCandles();
+}
+
+let lastStaticPollMs = 0;
 async function poll() {
+  if (!state.staticMode) {
+    try {
+      const resp = await fetch("/api/state", { cache: "no-store" });
+      if (!resp.ok) throw new Error("HTTP " + resp.status);
+      const data = await resp.json();
+      applyState(data);
+      $("connText").classList.remove("pulse");
+      return;
+    } catch (err) {
+      state.staticMode = true;
+    }
+  }
+  const nowMs = Date.now();
+  if (state.staticBundle && nowMs - lastStaticPollMs < 15000) {
+    return;
+  }
+  lastStaticPollMs = nowMs;
   try {
-    const resp = await fetch("/api/state", { cache: "no-store" });
-    if (!resp.ok) throw new Error("HTTP " + resp.status);
-    const data = await resp.json();
-    applyState(data);
-    $("connText").classList.remove("pulse");
-  } catch (err) {
+    const resp = await fetch("./state_bundle.json?_t=" + nowMs, { cache: "no-store" });
+    if (resp.ok) {
+      const bundle = await resp.json();
+      applyStaticBundle(bundle);
+      return;
+    }
+  } catch (err) { /* use embedded bundle if fetch fails */ }
+  if (state.staticBundle) {
+    applyStaticBundle(state.staticBundle);
+  } else {
     $("connPill").className = "pill bad";
-    $("connText").textContent = "本地服务断开，重试中…";
+    $("connText").textContent = "服务断开，重试中…";
     $("connText").classList.add("pulse");
   }
 }
@@ -954,6 +1160,12 @@ function extBarsFor(symbol, interval) {
 }
 
 async function loadExtended() {
+  if (state.staticBundle && state.staticBundle.extended) {
+    state.extended = state.staticBundle.extended;
+    renderExtended();
+    loadCandles();
+    if (state.staticMode) return;
+  }
   try {
     const resp = await fetch("/api/extended", { cache: "no-store" });
     if (!resp.ok) return;
@@ -1019,14 +1231,31 @@ async function loadCandles() {
     return;
   }
   chart.extMode = false;
+  const tf = tfApi(chart.interval);
+  if (state.staticMode && state.staticBundle && state.staticBundle.candles) {
+    const symCandles = (state.staticBundle.candles[chart.symbol] || {})[tf] || [];
+    chart.bars = symCandles;
+    chart.lastPrice = chart.bars.length ? chart.bars[chart.bars.length - 1].c : null;
+    $("chartSymbol").textContent = chart.symbol;
+    drawChart();
+    return;
+  }
   try {
-    const resp = await fetch("/api/candles?symbol=" + encodeURIComponent(chart.symbol) + "&tf=" + tfApi(chart.interval), { cache: "no-store" });
+    const resp = await fetch("/api/candles?symbol=" + encodeURIComponent(chart.symbol) + "&tf=" + tf, { cache: "no-store" });
     const data = await resp.json();
     chart.bars = data.bars || [];
     chart.lastPrice = chart.bars.length ? chart.bars[chart.bars.length - 1].c : null;
     $("chartSymbol").textContent = chart.symbol;
     drawChart();
   } catch (err) {
+    if (state.staticBundle && state.staticBundle.candles) {
+      const symCandles = (state.staticBundle.candles[chart.symbol] || {})[tf] || [];
+      chart.bars = symCandles;
+      chart.lastPrice = chart.bars.length ? chart.bars[chart.bars.length - 1].c : null;
+      $("chartSymbol").textContent = chart.symbol;
+      drawChart();
+      return;
+    }
     $("chartEmpty").style.display = "flex";
     $("chartEmpty").textContent = "图表数据加载失败，服务重连中…";
   }
@@ -1306,6 +1535,9 @@ document.getElementById("alertClose").addEventListener("click", () => {
 });
 document.addEventListener("click", unlockAudio, { once: true });
 
+if (state.staticBundle) {
+  applyStaticBundle(state.staticBundle);
+}
 poll();
 setInterval(poll, 900);
 const extToggle = $("extToggle");

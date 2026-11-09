@@ -17,7 +17,7 @@ PYTHONPATH=. python -m intraday_scalper.web.terminal_server --port 8080
 
 https://2827173579.github.io/intraday-scalper-terminal/
 
-这是 GitHub Pages 静态快照（B1 复盘 + 真实出场结构 + 终端截图）；实时盘中版用下面的 Render 部署。
+全功能交互式看盘终端已直接部署在 GitHub Pages（支持 SOXL / SOXS 1m/5m/15m/日K + 盘前盘后切换、V0.5 A+F 4.5R 阶梯锁利执行向导、B1 风控、近3个月复盘及浏览器本地人工成交记账；并由 `.github/workflows/scalper_pages.yml` 自动同步最新快照）。本地更新快照命令：`PYTHONPATH=. python -m intraday_scalper.tools.export_github_pages`。
 
 ## 云端部署（Render，免费版）
 

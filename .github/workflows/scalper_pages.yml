@@ -1,0 +1,80 @@
+name: "SOXL/SOXS V0.5 Intraday Terminal Pages Sync"
+
+on:
+  schedule:
+    # 1. 美股盘前 + 常规早盘 (美东 08:00~12:00 / UTC 13:00~17:00)
+    - cron: '*/15 13-16 * * 1-5'
+    # 2. 美股核心交易窗与尾盘 (美东 10:00~16:00 / UTC 14:00~21:00)
+    - cron: '*/10 14-21 * * 1-5'
+    # 3. 美股盘后复盘归档 (美东 16:30 / UTC 21:30)
+    - cron: '30 21 * * 1-5'
+  workflow_dispatch:
+
+concurrency:
+  group: intraday-scalper-pages
+  cancel-in-progress: true
+
+permissions:
+  contents: write
+
+jobs:
+  update-pages:
+    runs-on: ubuntu-latest
+    steps:
+      - name: 检出仓库代码
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 10
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: 设置 Python 3.11 环境
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+          cache-dependency-path: 'intraday_scalper/requirements.txt'
+
+      - name: 安装依赖
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r intraday_scalper/requirements.txt
+
+      - name: 🛡️ 本地优先检测 (本地活跃提交时云端避让防冲突)
+        id: check_local
+        run: |
+          NOW_TS=$(date +%s)
+          SKIP=false
+          while IFS="|" read -r email ts; do
+            if [ -n "$email" ] && [ "$email" != "actions@github.com" ]; then
+              DIFF=$((NOW_TS - ts))
+              if [ "$DIFF" -ge 0 ] && [ "$DIFF" -lt 600 ]; then
+                SKIP=true
+                echo "::notice ::🛡️ 检测到本地活跃提交 ($email, ${DIFF}s 前)，云端 Actions 自动避让"
+                break
+              fi
+            fi
+          done < <(git log -n 10 --format="%ae|%ct")
+          if [ "$SKIP" = "true" ] && [ "${{ github.event_name }}" = "schedule" ]; then
+            echo "skip_run=true" >> $GITHUB_OUTPUT
+          else
+            echo "skip_run=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: 🚀 生成 V0.5(A+F) 终端快照并同步至 GitHub Pages
+        if: steps.check_local.outputs.skip_run != 'true'
+        env:
+          PYTHONPATH: .
+          ALPACA_API_KEY: ${{ secrets.ALPACA_API_KEY }}
+          ALPACA_SECRET_KEY: ${{ secrets.ALPACA_SECRET_KEY }}
+          ALPACA_DATA_FEED: iex
+        run: |
+          python -m intraday_scalper.tools.export_github_pages
+          git config --local user.email "actions@github.com"
+          git config --local user.name "GitHub Actions"
+          git add docs/index.html docs/state_bundle.json
+          if ! git diff --cached --quiet; then
+            git commit -m "chore(pages): auto-refresh V0.5(A+F) terminal snapshot [skip ci]"
+            git push origin HEAD:main
+          else
+            echo "No snapshot changes to commit."
+          fi
