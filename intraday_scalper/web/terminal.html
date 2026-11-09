@@ -108,6 +108,9 @@
   .watch-card .sym small{font-size:10px;color:var(--muted);font-weight:500;margin-left:6px}
   .watch-card .price{font-family:"DIN Alternate",Consolas,monospace;font-size:26px;font-weight:800;margin-top:6px}
   .watch-card .chg{font-size:12px;font-weight:700;margin-top:2px}
+  .watch-card .ext-line{font-size:11px;font-weight:700;margin-top:5px;padding:3px 7px;border-radius:6px;background:rgba(192,132,252,0.10);border:1px solid rgba(192,132,252,0.30);color:#d8b4fe;display:none}
+  .pill.purple{color:#d8b4fe;border-color:rgba(192,132,252,.45);background:rgba(192,132,252,.12)}
+  .pill.purple .dot{background:#c084fc;box-shadow:0 0 10px #c084fc}
   .up{color:var(--green)} .down{color:var(--red)} .flat{color:var(--muted)}
   .watch-card .stats{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:10px;border-top:1px solid var(--line-soft);padding-top:8px}
   .watch-card .stats div{font-size:10px;color:var(--muted)}
@@ -265,6 +268,7 @@
         </div>
         <div class="price" id="price-SOXL">—</div>
         <div class="chg flat" id="chg-SOXL">—</div>
+        <div class="ext-line" id="ext-SOXL"></div>
         <div class="stats">
           <div>今日成交量（IEX）<b id="vol-SOXL">—</b></div>
           <div>IEX VWAP<b id="vwap-SOXL">—</b></div>
@@ -280,6 +284,7 @@
         </div>
         <div class="price" id="price-SOXS">—</div>
         <div class="chg flat" id="chg-SOXS">—</div>
+        <div class="ext-line" id="ext-SOXS"></div>
         <div class="stats">
           <div>今日成交量（IEX）<b id="vol-SOXS">—</b></div>
           <div>IEX VWAP<b id="vwap-SOXS">—</b></div>
@@ -411,10 +416,48 @@ function money(n) {
 }
 function cls(n) { return n > 0 ? "up" : (n < 0 ? "down" : "flat"); }
 
+function liveUsSessionPhase() {
+  const now = new Date();
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: "America/New_York",
+    weekday: "short",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  }).formatToParts(now);
+  const map = {};
+  for (const p of parts) map[p.type] = p.value;
+  const wd = map.weekday || "Mon";
+  const hr = Number(map.hour || 0) + Number(map.minute || 0) / 60.0;
+  if (wd === "Sat" || (wd === "Fri" && hr >= 20.0) || (wd === "Sun" && hr < 20.0)) {
+    return { code: "WEEKEND", label: "☕ 周末休市", pill: "" };
+  }
+  if (wd === "Sun" && hr >= 20.0) {
+    return { code: "OVERNIGHT", label: "🌌 美股夜盘", pill: "purple" };
+  }
+  if (hr >= 9.5 && hr < 16.0) {
+    return { code: "REGULAR", label: "🟢 常规盘中", pill: "ok" };
+  }
+  if (hr >= 4.0 && hr < 9.5) {
+    return { code: "PRE_MARKET", label: "🌅 盘前交易", pill: "warn" };
+  }
+  if (hr >= 16.0 && hr < 20.0) {
+    return { code: "POST_MARKET", label: "🌙 盘后交易", pill: "warn" };
+  }
+  return { code: "OVERNIGHT", label: "🌌 美股夜盘", pill: "purple" };
+}
+
 function updateClocks() {
   const now = new Date();
   $("etClock").textContent = now.toLocaleTimeString("en-US", { timeZone: "America/New_York", hour12: false });
   $("kstClock").textContent = now.toLocaleTimeString("en-US", { timeZone: "Asia/Seoul", hour12: false });
+  const phaseEl = $("phasePill");
+  const phaseText = $("phaseText");
+  if (phaseEl && phaseText) {
+    const livePhase = liveUsSessionPhase();
+    phaseEl.className = "pill " + (livePhase.pill || "");
+    phaseText.textContent = "阶段 · " + livePhase.label;
+  }
 }
 setInterval(updateClocks, 250);
 updateClocks();
@@ -436,6 +479,7 @@ function renderSymbols(symbols) {
     trend.className = "trend " + label;
     trend.textContent = label === "bull" ? "BULL 1m" : label === "bear" ? "BEAR 1m" : "FLAT 1m";
   }
+  if (state.extended) renderExtended();
 }
 
 function renderRadar(radar) {
@@ -1050,12 +1094,10 @@ function applyState(s) {
   const connected = conn.state === "CONNECTED";
   connEl.className = "pill " + (connected && dataOk ? "ok" : connected ? "warn" : "bad");
   $("connText").textContent = "IEX " + (connected ? "已连接" : "未连接") + " · " + (conn.data_status || "?");
-  const phase = conn.phase || "—";
+  const livePhase = liveUsSessionPhase();
   const phaseEl = $("phasePill");
-  const phaseMap = { REGULAR: ["常规盘中", "ok"], PRE_MARKET: ["盘前", "warn"], AFTER_HOURS: ["盘后", "warn"], CLOSED: ["已收盘", ""], WEEKEND: ["周末", ""] };
-  const [pLabel, pKind] = phaseMap[phase] || [phase, ""];
-  phaseEl.className = "pill " + (pKind || "");
-  $("phaseText").textContent = "阶段 · " + pLabel;
+  phaseEl.className = "pill " + (livePhase.pill || "");
+  $("phaseText").textContent = "阶段 · " + livePhase.label;
   $("modePill").className = "pill accent";
   $("modeText").textContent = "模式 · " + String(conn.mode || "DUAL_WATCH").toUpperCase();
   renderCountdown(s.countdown);
@@ -1178,10 +1220,27 @@ async function loadExtended() {
 function renderExtended() {
   const ext = state.extended;
   if (!ext) return;
+  const livePhase = liveUsSessionPhase();
   for (const sym of ["SOXL", "SOXS"]) {
     const pm = (ext.pm || {})[sym] || {};
     const el = $("pm-" + sym);
     if (el) el.textContent = pm.ready ? (Number(pm.pm_high).toFixed(2) + " / " + Number(pm.pm_low).toFixed(2)) : "—";
+    const extEl = $("ext-" + sym);
+    const extBars = (ext.symbols || {})[sym] || [];
+    const regPrice = Number((((state.latest || {}).symbols || {})[sym] || {}).last_price);
+    if (extEl && extBars.length) {
+      const lastBar = extBars[extBars.length - 1];
+      const extPrice = Number(lastBar.c);
+      if (Number.isFinite(extPrice) && extPrice > 0) {
+        const diffPct = (Number.isFinite(regPrice) && regPrice > 0) ? ((extPrice / regPrice - 1.0) * 100.0) : 0.0;
+        const sign = diffPct >= 0 ? "+" : "";
+        const clr = diffPct >= 0 ? "var(--green)" : "var(--red)";
+        const tag = livePhase.code === "OVERNIGHT" ? "🌌 夜盘/盘后" : (livePhase.code === "PRE_MARKET" ? "🌅 盘前实时" : ( lastBar.phase === "post" ? "🌙 盘后收盘" : "⚡ 扩展时段"));
+        const barTimeEt = fmtTime(lastBar.t);
+        extEl.style.display = "block";
+        extEl.innerHTML = tag + " <b>$" + fmt(extPrice, 3) + "</b> <span style='color:" + clr + "'>(" + sign + diffPct.toFixed(2) + "%)</span> <span style='color:var(--muted);font-weight:500;font-size:10px'>· " + barTimeEt + " ET</span>";
+      }
+    }
   }
   const hint = $("extHint");
   const age = ext.data_age_seconds;

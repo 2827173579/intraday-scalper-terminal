@@ -2,12 +2,11 @@ name: "SOXL/SOXS V0.5 Intraday Terminal Pages Sync"
 
 on:
   schedule:
-    # 1. 美股盘前 + 常规早盘 (美东 08:00~12:00 / UTC 13:00~17:00)
-    - cron: '*/15 13-16 * * 1-5'
-    # 2. 美股核心交易窗与尾盘 (美东 10:00~16:00 / UTC 14:00~21:00)
-    - cron: '*/10 14-21 * * 1-5'
-    # 3. 美股盘后复盘归档 (美东 16:30 / UTC 21:30)
-    - cron: '30 21 * * 1-5'
+    # 1. 美股盘前 (美东 04:00~09:30 / UTC 09:00~14:30)
+    - cron: '*/15 9-13 * * 1-5'
+    # 2. 美股常规盘中 + 盘后 (美东 09:30~20:00 / UTC 14:00~01:00)
+    - cron: '*/10 14-23 * * 1-5'
+    - cron: '*/15 0-1 * * 2-6'
   workflow_dispatch:
 
 concurrency:
@@ -73,7 +72,7 @@ jobs:
           git config --local user.name "GitHub Actions"
           git add docs/index.html docs/state_bundle.json
           if ! git diff --cached --quiet; then
-            git commit -m "chore(pages): auto-refresh V0.5(A+F) terminal snapshot [skip ci]"
+            git commit -m "chore(pages): auto-refresh V0.5(A+F) terminal snapshot"
             git push origin HEAD:main
           else
             echo "No snapshot changes to commit."

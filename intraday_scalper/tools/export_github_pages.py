@@ -257,16 +257,20 @@ def build_static_bundle() -> Dict[str, Any]:
     }
 
     now_et = ts.et_now()
-    if now_et.weekday() >= 5:
+    wd = now_et.weekday()
+    hr = now_et.hour + now_et.minute / 60.0
+    if wd == 5 or (wd == 4 and hr >= 20.0) or (wd == 6 and hr < 20.0):
         phase = "WEEKEND"
-    elif dt_time(9, 30) <= now_et.time() < dt_time(16, 0):
+    elif wd == 6 and hr >= 20.0:
+        phase = "OVERNIGHT"
+    elif 9.5 <= hr < 16.0:
         phase = "REGULAR"
-    elif dt_time(4, 0) <= now_et.time() < dt_time(9, 30):
+    elif 4.0 <= hr < 9.5:
         phase = "PRE_MARKET"
-    elif dt_time(16, 0) <= now_et.time() < dt_time(20, 0):
+    elif 16.0 <= hr < 20.0:
         phase = "AFTER_HOURS"
     else:
-        phase = "CLOSED"
+        phase = "OVERNIGHT"
 
     snapshot_dict = {
         "mode": "DUAL_WATCH",
