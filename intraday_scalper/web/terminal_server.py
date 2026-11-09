@@ -2116,6 +2116,7 @@ class LiveTerminal:
                         trade_count=0,
                     )
                 )
+        session_bars.sort(key=lambda b: (b.start_utc, b.symbol))
         prior_bars = [b for b in self._history_bars if b.start_utc.astimezone(ET).date() < current]
         all_bars = prior_bars + session_bars
         trades = v05.evaluate_v05_session(all_bars, current, variant=v05.V05_PRODUCTION_VARIANT)
