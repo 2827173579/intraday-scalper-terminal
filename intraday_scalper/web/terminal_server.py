@@ -2119,7 +2119,11 @@ class LiveTerminal:
         session_bars.sort(key=lambda b: (b.start_utc, b.symbol))
         prior_bars = [b for b in self._history_bars if b.start_utc.astimezone(ET).date() < current]
         all_bars = prior_bars + session_bars
-        trades = v05.evaluate_v05_session(all_bars, current, variant=v05.V05_PRODUCTION_VARIANT)
+        try:
+            trades = v05.evaluate_v05_session(all_bars, current, variant=v05.V05_PRODUCTION_VARIANT)
+        except Exception as exc:  # noqa: BLE001
+            # If current day is not yet regular market hours (e.g. pre-market / overnight), suppress error
+            return
         markers: List[Dict[str, Any]] = []
         latest_trade: Optional[Dict[str, Any]] = None
         for trade in trades:
