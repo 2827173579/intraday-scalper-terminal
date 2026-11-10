@@ -2156,20 +2156,20 @@ class LiveTerminal:
                 continue
             self._v04_marker_keys.add(key)
             kind = kind_map.get(str(marker.get("type", "")).upper(), "INFO")
-            self.events.append(
-                {
-                    "ts_utc": marker.get("time_utc"),
-                    "ts_et": marker.get("time_utc"),
-                    "kind": kind,
-                    "level": "CRITICAL" if kind == "ENTRY_SIGNAL" else "WARNING",
-                    "symbol": marker.get("symbol"),
-                    "signal_id": marker.get("trade_id"),
-                    "message": (
-                        f"V0.5(A+F) {marker.get('type')} {marker.get('symbol')} "
-                        f"@ {marker.get('price')} · {marker.get('strategy', '')}"
-                    ),
-                }
-            )
+            event_payload = {
+                "ts_utc": marker.get("time_utc"),
+                "ts_et": marker.get("time_utc"),
+                "kind": kind,
+                "level": "CRITICAL" if kind == "ENTRY_SIGNAL" else "WARNING",
+                "symbol": marker.get("symbol"),
+                "signal_id": marker.get("trade_id"),
+                "message": (
+                    f"V0.5(A+F) {marker.get('type')} {marker.get('symbol')} "
+                    f"@ {marker.get('price')} · {marker.get('strategy', '')}"
+                ),
+            }
+            self.events.append(event_payload)
+            dispatch_scalper_alert_async(event_payload)
         self._v04_last_count = five_count
 
     def _maybe_evaluate_btc(self) -> None:
@@ -2208,19 +2208,19 @@ class LiveTerminal:
                 self._btc_marker_keys.add(key)
                 mtype = str(marker.get("type", "")).upper()
                 kind = kind_map.get(mtype, "INFO")
-                self.events.append(
-                    {
-                        "ts_utc": marker.get("time_utc"),
-                        "ts_et": marker.get("time_utc"),
-                        "kind": kind,
-                        "level": "CRITICAL" if kind == "ENTRY_SIGNAL" else ("WARNING" if "HINT" in kind else "INFO"),
-                        "symbol": "BTCUSD",
-                        "signal_id": marker.get("trade_id"),
-                        "message": (
-                            f"BTC/USD {marker.get('type')} @ {marker.get('price')} · {marker.get('strategy', '')}"
-                        ),
-                    }
-                )
+                btc_event = {
+                    "ts_utc": marker.get("time_utc"),
+                    "ts_et": marker.get("time_utc"),
+                    "kind": kind,
+                    "level": "CRITICAL" if kind == "ENTRY_SIGNAL" else ("WARNING" if "HINT" in kind else "INFO"),
+                    "symbol": "BTCUSD",
+                    "signal_id": marker.get("trade_id"),
+                    "message": (
+                        f"BTC/USD {marker.get('type')} @ {marker.get('price')} · {marker.get('strategy', '')}"
+                    ),
+                }
+                self.events.append(btc_event)
+                dispatch_scalper_alert_async(btc_event)
         except Exception as exc:  # noqa: BLE001
             print(f"[terminal] BTC evaluation error: {exc}", flush=True)
 
