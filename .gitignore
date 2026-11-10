@@ -12,3 +12,6 @@ logs/
 *.db
 *.parquet
 *.jsonl
+
+start_terminal.bat
+start_terminal_silent.vbs
